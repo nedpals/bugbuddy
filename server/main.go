@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/spf13/cobra"
@@ -11,8 +10,9 @@ var rootCmd = &cobra.Command{
 	Use:   "bugbuddy",
 	Short: "BugBuddy is a runtime error analyzer and assistant.",
 	Run: func(cmd *cobra.Command, args []string) {
-		if err := listenToProcess(args[0], args[1:]...); err != nil {
-			fmt.Println(err.Error())
+		daemonClient := connectToDaemon(DEFAULT_DAEMON_PORT)
+		if err := monitorProcess(daemonClient, args[0], args[1:]...); err != nil {
+			log.Fatalln(err)
 		}
 	},
 }
@@ -29,7 +29,7 @@ var daemonCmd = &cobra.Command{
 	Use:   "daemon",
 	Short: "Starts a daemon process to collect error messages from programs.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return startDaemon(":3434")
+		return startDaemon(DEFAULT_DAEMON_PORT)
 	},
 }
 
