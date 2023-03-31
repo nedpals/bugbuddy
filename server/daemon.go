@@ -1,14 +1,16 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net"
-	"net/http"
-	"net/rpc"
 	"os"
 	"os/exec"
 	"time"
+
+	"github.com/sourcegraph/jsonrpc2"
 )
 
 const DEFAULT_DAEMON_PORT = ":3434"
@@ -17,27 +19,47 @@ type DaemonServer struct {
 	errors []string
 }
 
-func (d *DaemonServer) Collect(err string, reply *int) error {
+// TODO: dummy payload for now. should give back instructions instead of the error message
+type ErrorReport struct {
+	Message string
+}
+
+func (d *DaemonServer) Collect(ctx context.Context, err string, c *jsonrpc2.Conn) (int, error) {
 	fmt.Println(err)
-
 	d.errors = append(d.errors, err)
-	*reply = 1
 
-	return nil
+	// TODO: process error first before notify
+	c.Notify(ctx, "clients/report", &ErrorReport{
+		Message: err,
+	})
+
+	return 1, nil
+}
+
+func (d *DaemonServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) {
+	switch r.Method {
+	case "collect":
+		var errorStr string
+		if err := json.Unmarshal(*r.Params, &errorStr); err != nil {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Message: "Unable to decode params of method " + r.Method,
+			})
+		}
+
+		n, err := d.Collect(ctx, errorStr, c)
+		if err != nil {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Message: err.Error(),
+			})
+		} else {
+			c.Reply(ctx, r.ID, n)
+		}
+	}
 }
 
 func startDaemon(addr string) error {
-	daemon := new(DaemonServer)
-	rpc.Register(daemon)
-	rpc.HandleHTTP()
-
-	l, err := net.Listen("tcp", addr)
-	if err != nil {
-		return err
-	}
-
 	fmt.Println("> daemon started on " + addr)
-	return http.Serve(l, nil)
+	return startRpcServer(addr, jsonrpc2.VarintObjectCodec{}, &DaemonServer{})
 }
 
 // TODO: add function ensuring daemon is alive. if not, spawn the daemon
@@ -62,16 +84,19 @@ func startDaemonProcess() error {
 }
 
 type DaemonClient struct {
-	*rpc.Client
-	addr string
+	*jsonrpc2.Conn
+	tcpConn net.Conn
+	addr    string
 }
 
+func (c *DaemonClient) Handle(ctx context.Context, conn *jsonrpc2.Conn, r *jsonrpc2.Request) {}
+
 func (c *DaemonClient) Collect(err string) error {
-	return c.Call("DaemonServer.Collect", err, nil)
+	return c.Call(context.Background(), "collect", err, nil)
 }
 
 func (c *DaemonClient) EnsureConnection() error {
-	if c.Client != nil {
+	if c.Conn != nil {
 		return nil
 	}
 
@@ -84,19 +109,25 @@ func (c *DaemonClient) EnsureConnection() error {
 }
 
 func (c *DaemonClient) Connect() error {
-	client, err := rpc.DialHTTP("tcp", c.addr)
+	conn, err := net.Dial("tcp", c.addr)
 	if err != nil {
 		return err
 	}
 
-	c.Client = client
+	c.tcpConn = conn
+	c.Conn = jsonrpc2.NewConn(
+		context.Background(),
+		jsonrpc2.NewBufferedStream(c.tcpConn, jsonrpc2.VarintObjectCodec{}),
+		c,
+	)
+
 	return nil
 }
 
 func connectToDaemon(addr string) *DaemonClient {
 	cl := &DaemonClient{
-		addr:   addr,
-		Client: nil,
+		addr: addr,
+		Conn: nil,
 	}
 
 	cl.Connect()
