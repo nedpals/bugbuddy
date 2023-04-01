@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { LanguageClient, LanguageClientOptions, ServerOptions } from 'vscode-languageclient/node'
-import { spawn } from 'child_process';
+import { ChildProcessWithoutNullStreams, spawn } from 'child_process';
 
 function getWorkspaceFolder(uri?: vscode.Uri): vscode.WorkspaceFolder {
 	if (uri) {
@@ -21,21 +21,16 @@ function launchServer(execPath: string) {
 	return spawn(execPath, ["lsp"], {shell: true})
 }
 
+let serverProcess: ChildProcessWithoutNullStreams;
+let client: LanguageClient;
+
 export function activate(context: vscode.ExtensionContext) {
 	vscode.window.showInformationMessage("Launching BugBuddy...");
 
 	const customPath = getWorkspaceConfig().get<string>('path', 'bugbuddy');
 	console.log('Launching bug buddy from', customPath);
 
-	const serverProcess = launchServer(customPath);
-	
-	serverProcess.stdout.on('data', (raw: string | Buffer) => {
-		if (raw instanceof Buffer) {
-			console.log(raw.toString('utf-8'))
-		} else {
-			console.log(raw);
-		}
-	});
+	serverProcess = launchServer(customPath);
 
 	serverProcess.stderr.on('data', (raw: string | Buffer) => {
 		if (raw instanceof Buffer) {
@@ -47,17 +42,18 @@ export function activate(context: vscode.ExtensionContext) {
 
 	const serverOpts: ServerOptions = () => Promise.resolve(serverProcess);
 	const clientOpts: LanguageClientOptions = {}
-	const client = new LanguageClient('BugBuddy LSP', serverOpts, clientOpts);
+	client = new LanguageClient('BugBuddy LSP', serverOpts, clientOpts);
 	
 	client.start()
 		.then(() => {
-			vscode.window.setStatusBarMessage('The V language server is ready.', 3000);
+			vscode.window.setStatusBarMessage('BugBuddy LSP is ready.', 3000);
 		})
 		.catch(() => {
-			vscode.window.setStatusBarMessage('The V language server failed to initialize.', 3000);
+			vscode.window.setStatusBarMessage('BugBuddy LSP failed to initialize.', 3000);
 		});
-
-	context.subscriptions.push(client);
 }
 
-export function deactivate() {}
+export async function deactivate() {
+	await client.stop();
+	await client.dispose();
+}
