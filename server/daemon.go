@@ -103,7 +103,7 @@ func (d *DaemonServer) checkProcessConnection(r *jsonrpc2.Request) *jsonrpc2.Err
 }
 
 func (d *DaemonServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) {
-	if r.Method != "handshake" && r.Method != "disconnect" {
+	if r.Method != "handshake" && r.Method != "shutdown" {
 		if err := d.checkProcessConnection(r); err != nil {
 			c.ReplyWithError(ctx, r.ID, err)
 			return
