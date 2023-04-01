@@ -18,10 +18,10 @@ var rootCmd = &cobra.Command{
 }
 
 var lspCmd = &cobra.Command{
-	Use:   "lsp-server",
+	Use:   "lsp",
 	Short: "Starts a language server to be consumed by LSP-supported editors",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return startLspServer(":3333")
+		return startLspServer(DEFAULT_LSP_PORT)
 	},
 }
 
