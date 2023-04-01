@@ -167,12 +167,22 @@ func startDaemonProcess() error {
 	return nil
 }
 
+type ClientConnectionState int
+
+const (
+	CLIENT_NOT_CONNECTED ClientConnectionState = 0
+	CLIENT_CONNECTED     ClientConnectionState = iota
+	CLIENT_INITIALIZED   ClientConnectionState = iota
+	CLIENT_SHUTDOWN      ClientConnectionState = iota
+)
+
 type DaemonClient struct {
-	*jsonrpc2.Conn
+	rpcConn   *jsonrpc2.Conn
 	tcpConn   net.Conn
 	addr      string
 	processId int
 	// handshake? bool
+	connState   ClientConnectionState
 	clientType  ClientType
 	HandleFunc  func(context.Context, *jsonrpc2.Conn, *jsonrpc2.Request)
 	OnReconnect func()
@@ -183,34 +193,58 @@ func (c *DaemonClient) processIdField() jsonrpc2.CallOption {
 	return jsonrpc2.ExtraField("processId", c.processId)
 }
 
+func (c *DaemonClient) Call(method string, params any, result any) error {
+	return c.rpcConn.Call(context.Background(), method, params, result, c.processIdField())
+}
+
+func (c *DaemonClient) Notify(method string, params any) error {
+	return c.rpcConn.Notify(context.Background(), method, params, c.processIdField())
+}
+
 func (c *DaemonClient) Handle(ctx context.Context, conn *jsonrpc2.Conn, r *jsonrpc2.Request) {
 	c.HandleFunc(ctx, conn, r)
 }
 
 func (c *DaemonClient) Collect(err string) error {
-	return c.Call(context.Background(), "collect", err, nil, c.processIdField())
+	return c.Call("collect", err, nil)
 }
 
 func (c *DaemonClient) Handshake() error {
-	return c.Call(context.Background(), "handshake", &DaemonClientInfo{
+	err := c.Call("handshake", &DaemonClientInfo{
 		ProcessId:  c.processId,
 		ClientType: c.clientType,
 	}, nil)
+
+	if err != nil {
+		return err
+	}
+
+	c.connState = CLIENT_INITIALIZED
+	return nil
 }
 
 func (c *DaemonClient) Close() error {
 	if err := c.Shutdown(); err != nil {
 		return err
 	}
-	return c.Conn.Close()
+	return c.rpcConn.Close()
 }
 
 func (c *DaemonClient) Shutdown() error {
-	return c.Notify(context.Background(), "shutdown", nil, c.processIdField())
+	if c.connState == CLIENT_SHUTDOWN || c.connState == CLIENT_NOT_CONNECTED {
+		return nil
+	}
+
+	if err := c.Notify("shutdown", nil); err != nil {
+		return err
+	}
+
+	c.connState = CLIENT_SHUTDOWN
+	return nil
 }
 
 func (c *DaemonClient) EnsureConnection() error {
-	if c.Conn != nil {
+	if c.rpcConn != nil || c.connState == CLIENT_NOT_CONNECTED {
 		return nil
 	}
 
@@ -236,9 +270,10 @@ func (c *DaemonClient) Connect() error {
 		return err
 	}
 
+	c.connState = CLIENT_CONNECTED
 	c.tcpConn = conn
 
-	c.Conn = jsonrpc2.NewConn(
+	c.rpcConn = jsonrpc2.NewConn(
 		context.Background(),
 		jsonrpc2.NewBufferedStream(c.tcpConn, jsonrpc2.VarintObjectCodec{}),
 		c,
@@ -250,9 +285,10 @@ func (c *DaemonClient) Connect() error {
 func connectToDaemon(addr string, clientType ClientType, handlerFunc ...func(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request)) *DaemonClient {
 	cl := &DaemonClient{
 		addr:       addr,
-		Conn:       nil,
+		rpcConn:    nil,
 		processId:  os.Getpid(),
 		clientType: clientType,
+		connState:  CLIENT_NOT_CONNECTED,
 		HandleFunc: func(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) {},
 		OnReconnect: func() {
 			fmt.Println("> daemon not started. spawning...")
