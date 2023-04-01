@@ -38,9 +38,11 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 			Message: "Client is connected",
 		})
 	case "shutdown":
+		s.daemonClient.Shutdown()
 		c.Reply(ctx, r.ID, json.RawMessage("null"))
-		return
 	case "exit":
+		s.daemonClient.Close()
+		s.conn.Close()
 		<-s.doneChan
 	}
 }
@@ -121,8 +123,6 @@ func startLspServer(addr string) error {
 				Diagnostics: diagnostics,
 			})
 		case <-lspServer.doneChan:
-			lspServer.daemonClient.Close()
-			lspServer.conn.Close()
 			os.Exit(0)
 		}
 	}
