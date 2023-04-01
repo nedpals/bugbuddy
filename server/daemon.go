@@ -173,8 +173,9 @@ type DaemonClient struct {
 	addr      string
 	processId int
 	// handshake? bool
-	clientType ClientType
-	HandleFunc func(context.Context, *jsonrpc2.Conn, *jsonrpc2.Request)
+	clientType  ClientType
+	HandleFunc  func(context.Context, *jsonrpc2.Conn, *jsonrpc2.Request)
+	OnReconnect func()
 }
 
 func (c *DaemonClient) processIdField() jsonrpc2.CallOption {
@@ -213,7 +214,7 @@ func (c *DaemonClient) EnsureConnection() error {
 		return nil
 	}
 
-	fmt.Println("> daemon not started. spawning...")
+	c.OnReconnect()
 	if err := startDaemonProcess(); err != nil {
 		log.Fatalln(err)
 	}
@@ -227,7 +228,16 @@ func (c *DaemonClient) Connect() error {
 		return err
 	}
 
+	if err := conn.(*net.TCPConn).SetKeepAlive(true); err != nil {
+		return err
+	}
+
+	if err := conn.(*net.TCPConn).SetKeepAlivePeriod(10 * time.Second); err != nil {
+		return err
+	}
+
 	c.tcpConn = conn
+
 	c.Conn = jsonrpc2.NewConn(
 		context.Background(),
 		jsonrpc2.NewBufferedStream(c.tcpConn, jsonrpc2.VarintObjectCodec{}),
@@ -244,6 +254,9 @@ func connectToDaemon(addr string, clientType ClientType, handlerFunc ...func(ctx
 		processId:  os.Getpid(),
 		clientType: clientType,
 		HandleFunc: func(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) {},
+		OnReconnect: func() {
+			fmt.Println("> daemon not started. spawning...")
+		},
 	}
 
 	if len(handlerFunc) > 0 {
