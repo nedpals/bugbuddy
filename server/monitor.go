@@ -46,8 +46,12 @@ func monitorProcess(daemonClient *DaemonClient, prog string, args ...string) err
 		return err
 	}
 
-	fmt.Printf("> listening to %s %s...\n", prog, strings.Join(args, " "))
+	defer func() {
+		errProcessor.Flush()
+		errProcessor.daemonClient.Close()
+	}()
 
+	fmt.Printf("> listening to %s %s...\n", prog, strings.Join(args, " "))
 	progCmd := exec.Command(prog, args...)
 	progCmd.Stdin = os.Stdin
 	progCmd.Stdout = os.Stdout
@@ -58,7 +62,6 @@ func monitorProcess(daemonClient *DaemonClient, prog string, args ...string) err
 		return err
 	}
 
-	defer errProcessor.Flush()
 	sc := bufio.NewScanner(stderrPipe)
 	for sc.Scan() {
 		errProcessor.Write(sc.Bytes())

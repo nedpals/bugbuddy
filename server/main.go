@@ -10,7 +10,7 @@ var rootCmd = &cobra.Command{
 	Use:   "bugbuddy",
 	Short: "BugBuddy is a runtime error analyzer and assistant.",
 	Run: func(cmd *cobra.Command, args []string) {
-		daemonClient := connectToDaemon(DEFAULT_DAEMON_PORT)
+		daemonClient := connectToDaemon(DEFAULT_DAEMON_PORT, CLIENT_TYPE_MONITOR)
 		if err := monitorProcess(daemonClient, args[0], args[1:]...); err != nil {
 			log.Fatalln(err)
 		}
