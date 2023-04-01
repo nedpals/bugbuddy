@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"os"
 
 	"github.com/sourcegraph/jsonrpc2"
@@ -33,6 +33,12 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 		})
 	case "initialized":
 		c.Reply(ctx, r.ID, map[string]string{})
+	case "shutdown":
+		c.Reply(ctx, r.ID, json.RawMessage("null"))
+		return
+	case "exit":
+		<-s.doneChan
+		return
 	}
 }
 
@@ -69,7 +75,6 @@ func startLspServer(addr string) error {
 	for {
 		select {
 		case <-lspServer.publishChan:
-			fmt.Println("publishing diagnostics")
 			lspServer.conn.Notify(ctx, lsp.MethodTextDocumentPublishDiagnostics, lsp.PublishDiagnosticsParams{
 				// TODO:
 			})
