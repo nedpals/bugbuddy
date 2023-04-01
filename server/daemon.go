@@ -65,16 +65,16 @@ func (d *DaemonServer) Collect(ctx context.Context, err string, c *jsonrpc2.Conn
 
 func (d *DaemonServer) getProcessId(r *jsonrpc2.Request) int {
 	for _, req := range r.ExtraFields {
-		if req.Name == "processId" {
-			if procId, ok := req.Value.(json.Number); ok {
-				if num, err := procId.Int64(); err == nil {
-					return int(num)
-				} else {
-					return -1
-				}
+		if req.Name != "processId" {
+			continue
+		} else if procId, ok := req.Value.(json.Number); ok {
+			if num, err := procId.Int64(); err == nil {
+				return int(num)
 			} else {
-				return -2
+				return -1
 			}
+		} else {
+			return -2
 		}
 	}
 	return -1
