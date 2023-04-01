@@ -148,6 +148,9 @@ func (d *DaemonServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2
 		} else {
 			c.Reply(ctx, r.ID, n)
 		}
+	case "ping":
+		procId := d.getProcessId(r)
+		fmt.Printf("> ping from %d\n", procId)
 	}
 }
 
