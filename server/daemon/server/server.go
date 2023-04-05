@@ -8,10 +8,12 @@ import (
 	"github.com/nedpals/bugbuddy-proto/server/daemon/types"
 	"github.com/nedpals/bugbuddy-proto/server/error_analyzer"
 	"github.com/nedpals/bugbuddy-proto/server/rpc"
+	"github.com/nedpals/bugbuddy-proto/server/store"
 	"github.com/sourcegraph/jsonrpc2"
 )
 
 type Server struct {
+	store            store.Store
 	connectedClients map[int]types.ClientType
 	errors           []string
 }
