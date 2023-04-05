@@ -50,15 +50,20 @@ func (d *DaemonServer) countLspClients() int {
 	return count
 }
 
+func analyzeAndSendError(ctx context.Context, err string, c *jsonrpc2.Conn) {
+	suggestion := defaultErrorAnalyzer.analyze(err)
+	c.Notify(ctx, "clients/report", &ErrorReport{
+		Message: suggestion,
+	})
+}
+
 func (d *DaemonServer) Collect(ctx context.Context, err string, c *jsonrpc2.Conn) (int, error) {
 	fmt.Println(err)
 	d.errors = append(d.errors, err)
 
 	// TODO: process error first before notify
 	fmt.Printf("> report new errors to %d clients\n", d.countLspClients())
-	c.Notify(ctx, "clients/report", &ErrorReport{
-		Message: err,
-	})
+	go analyzeAndSendError(ctx, err, c)
 
 	return 1, nil
 }

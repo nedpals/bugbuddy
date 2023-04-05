@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/spf13/cobra"
@@ -33,9 +34,20 @@ var daemonCmd = &cobra.Command{
 	},
 }
 
+var analyzeCmd = &cobra.Command{
+	Use:   "analyze",
+	Short: "Analyzes a specific error message and returns the suggestion. For testing purposes only",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		output := defaultErrorAnalyzer.analyze(args[0])
+		fmt.Println(output)
+		return nil
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(lspCmd)
 	rootCmd.AddCommand(daemonCmd)
+	rootCmd.AddCommand(analyzeCmd)
 }
 
 func main() {
