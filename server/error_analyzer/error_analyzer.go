@@ -1,4 +1,4 @@
-package main
+package error_analyzer
 
 import (
 	sitter "github.com/smacker/go-tree-sitter"
@@ -11,10 +11,10 @@ func setupParsers() {
 	parser.SetLanguage(java.GetLanguage())
 }
 
-var defaultErrorAnalyzer = &ErrorAnalyzer{}
+var Default = &ErrorAnalyzer{}
 
 type ErrorAnalyzer struct{}
 
-func (an *ErrorAnalyzer) analyze(errorMsg string) string {
+func (an *ErrorAnalyzer) Analyze(errorMsg string) string {
 	return "test"
 }

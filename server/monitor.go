@@ -7,10 +7,12 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+
+	daemonClient "github.com/nedpals/bugbuddy-proto/server/daemon/client"
 )
 
 type StderrMonitor struct {
-	daemonClient *DaemonClient
+	daemonClient *daemonClient.Client
 	buf          bytes.Buffer
 }
 
@@ -40,7 +42,7 @@ func (wr *StderrMonitor) Write(p []byte) (n int, err error) {
 	return wr.buf.Write(p)
 }
 
-func monitorProcess(daemonClient *DaemonClient, prog string, args ...string) error {
+func monitorProcess(daemonClient *daemonClient.Client, prog string, args ...string) error {
 	errProcessor := &StderrMonitor{daemonClient: daemonClient}
 	if err := errProcessor.daemonClient.EnsureConnection(); err != nil {
 		return err

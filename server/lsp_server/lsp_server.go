@@ -1,4 +1,4 @@
-package main
+package lsp_server
 
 import (
 	"context"
@@ -6,15 +6,19 @@ import (
 	"io"
 	"os"
 
+	"github.com/nedpals/bugbuddy-proto/server/daemon"
+	daemonClient "github.com/nedpals/bugbuddy-proto/server/daemon/client"
+	"github.com/nedpals/bugbuddy-proto/server/daemon/types"
 	"github.com/sourcegraph/jsonrpc2"
 	lsp "go.lsp.dev/protocol"
 )
 
-const DEFAULT_LSP_PORT = ":3333"
+const DEFAULT_PORT = ":3333"
 
 type LspServer struct {
 	conn                   *jsonrpc2.Conn
-	daemonClient           *DaemonClient
+	daemonClient           *daemonClient.Client
+	version                string
 	unpublishedDiagnostics []string
 	publishChan            chan int
 	doneChan               chan int
@@ -29,7 +33,7 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 			},
 			ServerInfo: &lsp.ServerInfo{
 				Name:    "BugBuddy",
-				Version: rootCmd.Version,
+				Version: s.version,
 			},
 		})
 	case "initialized":
@@ -69,7 +73,7 @@ func (conn *connection) Close() error {
 	return nil
 }
 
-func startLspServer(addr string) error {
+func Start(addr string) error {
 	lspServer := &LspServer{
 		unpublishedDiagnostics: []string{},
 		publishChan:            make(chan int),
@@ -84,7 +88,7 @@ func startLspServer(addr string) error {
 		jsonrpc2.AsyncHandler(lspServer),
 	)
 
-	lspServer.daemonClient = connectToDaemon(DEFAULT_DAEMON_PORT, CLIENT_TYPE_LSP, func(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) {
+	lspServer.daemonClient = daemon.Connect(daemon.DEFAULT_PORT, types.LspClientType, func(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) {
 		lspServer.conn.Notify(ctx, lsp.MethodWindowShowMessage, lsp.ShowMessageParams{
 			Type:    lsp.MessageTypeInfo,
 			Message: r.Method,
