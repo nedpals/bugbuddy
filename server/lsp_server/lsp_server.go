@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/nedpals/bugbuddy-proto/server/daemon"
 	daemonClient "github.com/nedpals/bugbuddy-proto/server/daemon/client"
@@ -46,13 +48,9 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 			Type:    lsp.MessageTypeInfo,
 			Message: "Client is connected",
 		})
-	case "shutdown":
-		s.daemonClient.Shutdown()
-		c.Reply(ctx, r.ID, json.RawMessage("null"))
-	case "exit":
-		s.daemonClient.Close()
-		s.conn.Close()
-		<-s.doneChan
+	case lsp.MethodExit:
+		s.doneChan <- 0
+		return
 	}
 }
 
@@ -93,7 +91,7 @@ func Start(addr string) error {
 		jsonrpc2.AsyncHandler(lspServer),
 	)
 
-	lspServer.daemonClient = daemon.Connect(daemon.DEFAULT_PORT, types.LspClientType, func(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) {
+	daemonClient := daemon.Connect(daemon.DEFAULT_PORT, types.LspClientType, func(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) {
 		lspServer.conn.Notify(ctx, lsp.MethodWindowShowMessage, lsp.ShowMessageParams{
 			Type:    lsp.MessageTypeInfo,
 			Message: r.Method,
@@ -106,16 +104,26 @@ func Start(addr string) error {
 	})
 
 	ctx := context.Background()
-	lspServer.daemonClient.OnReconnect = func() {
+	daemonClient.OnReconnect = func() {
 		lspServer.conn.Notify(ctx, lsp.MethodWindowShowMessage, lsp.ShowMessageParams{
 			Type:    lsp.MessageTypeInfo,
 			Message: "Daemon not connected. Launching...",
 		})
 	}
 
-	if err := lspServer.daemonClient.EnsureConnection(); err != nil {
+	if err := daemonClient.EnsureConnection(); err != nil {
 		return err
 	}
+
+	lspServer.daemonClient = daemonClient
+
+	exitSignal := make(chan os.Signal, 1)
+	signal.Notify(exitSignal, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		<-exitSignal
+		lspServer.doneChan <- 1
+	}()
 
 	for {
 		select {
@@ -131,8 +139,10 @@ func Start(addr string) error {
 			lspServer.conn.Notify(ctx, lsp.MethodTextDocumentPublishDiagnostics, lsp.PublishDiagnosticsParams{
 				Diagnostics: diagnostics,
 			})
-		case <-lspServer.doneChan:
-			os.Exit(0)
+		case eCode := <-lspServer.doneChan:
+			lspServer.daemonClient.Close()
+			lspServer.conn.Close()
+			os.Exit(eCode)
 		}
 	}
 }

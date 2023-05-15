@@ -120,7 +120,7 @@ func (c *Client) Shutdown() error {
 		return nil
 	}
 
-	if err := c.Notify("shutdown", nil); err != nil {
+	if err := c.Notify(types.ShutdownMethod, nil); err != nil {
 		return err
 	}
 
