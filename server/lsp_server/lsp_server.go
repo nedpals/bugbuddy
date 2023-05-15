@@ -33,7 +33,7 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 	})
 
 	switch r.Method {
-	case "initialize":
+	case lsp.MethodInitialize:
 		c.Reply(ctx, r.ID, lsp.InitializeResult{
 			Capabilities: lsp.ServerCapabilities{
 				TextDocumentSync: lsp.TextDocumentSyncKindIncremental,
@@ -43,7 +43,8 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 				Version: s.version,
 			},
 		})
-	case "initialized":
+		return
+	case lsp.MethodInitialized:
 		c.Notify(ctx, lsp.MethodWindowShowMessage, lsp.ShowMessageParams{
 			Type:    lsp.MessageTypeInfo,
 			Message: "Client is connected",
