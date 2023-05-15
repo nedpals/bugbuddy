@@ -49,15 +49,16 @@ func (d *Server) getProcessId(r *jsonrpc2.Request) int {
 
 func (d *Server) checkProcessConnection(r *jsonrpc2.Request) *jsonrpc2.Error {
 	procId := d.getProcessId(r)
-	if procId == -2 {
-		return &jsonrpc2.Error{
-			Code:    jsonrpc2.CodeInvalidRequest,
-			Message: "Invalid process ID",
-		}
-	} else if _, found := d.connectedClients[procId]; !found {
+
+	if _, found := d.connectedClients[procId]; !found {
 		return &jsonrpc2.Error{
 			Code:    jsonrpc2.CodeInvalidRequest,
 			Message: "Process not connected yet.",
+		}
+	} else if procId == -2 {
+		return &jsonrpc2.Error{
+			Code:    jsonrpc2.CodeInvalidRequest,
+			Message: "Invalid process ID",
 		}
 	} else if procId == -1 {
 		return &jsonrpc2.Error{
@@ -70,7 +71,7 @@ func (d *Server) checkProcessConnection(r *jsonrpc2.Request) *jsonrpc2.Error {
 }
 
 func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) {
-	if types.MethodIsEither(r.Method, types.HandshakeMethod, types.ShutdownMethod) {
+	if !types.MethodIsEither(r.Method, types.HandshakeMethod, types.ShutdownMethod) {
 		if err := d.checkProcessConnection(r); err != nil {
 			c.ReplyWithError(ctx, r.ID, err)
 			return
