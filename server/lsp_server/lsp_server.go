@@ -45,6 +45,10 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 		})
 		return
 	case lsp.MethodInitialized:
+	case lsp.MethodShutdown:
+		s.daemonClient.Shutdown()
+		c.Reply(ctx, r.ID, json.RawMessage("null"))
+		return
 		c.Notify(ctx, lsp.MethodWindowShowMessage, lsp.ShowMessageParams{
 			Type:    lsp.MessageTypeInfo,
 			Message: "Client is connected",
