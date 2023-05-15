@@ -81,6 +81,7 @@ func Start(addr string) error {
 	lspServer := &LspServer{
 		unpublishedDiagnostics: []string{},
 		publishChan:            make(chan int),
+		doneChan:               make(chan int, 1),
 	}
 
 	lspServer.conn = jsonrpc2.NewConn(
