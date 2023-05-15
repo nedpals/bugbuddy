@@ -1,6 +1,8 @@
 package error_analyzer
 
 import (
+	"fmt"
+
 	sitter "github.com/smacker/go-tree-sitter"
 	"github.com/smacker/go-tree-sitter/java"
 )
@@ -16,5 +18,11 @@ var Default = &ErrorAnalyzer{}
 type ErrorAnalyzer struct{}
 
 func (an *ErrorAnalyzer) Analyze(errorMsg string) string {
-	return "test"
+	tokenizer := NewTokenizer(errorMsg)
+
+	for tok := tokenizer.Scan(); tok.Kind != EofKind && tok.Kind != ErrorKind; tok = tokenizer.Scan() {
+		fmt.Println(tok)
+	}
+
+	return ""
 }

@@ -25,11 +25,16 @@ type LspServer struct {
 }
 
 func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) {
+	c.Notify(ctx, lsp.MethodWindowShowMessage, lsp.ShowMessageParams{
+		Type:    lsp.MessageTypeInfo,
+		Message: r.Method,
+	})
+
 	switch r.Method {
 	case "initialize":
 		c.Reply(ctx, r.ID, lsp.InitializeResult{
 			Capabilities: lsp.ServerCapabilities{
-				TextDocumentSync: lsp.TextDocumentSyncKindNone,
+				TextDocumentSync: lsp.TextDocumentSyncKindIncremental,
 			},
 			ServerInfo: &lsp.ServerInfo{
 				Name:    "BugBuddy",

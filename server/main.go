@@ -14,11 +14,16 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "bugbuddy",
 	Short: "BugBuddy is a runtime error analyzer and assistant.",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) == 0 {
+			return fmt.Errorf("you must specify a program to run")
+		}
+
 		daemonClient := daemon.Connect(daemon.DEFAULT_PORT, types.MonitorClientType)
 		if err := monitorProcess(daemonClient, args[0], args[1:]...); err != nil {
 			log.Fatalln(err)
 		}
+		return nil
 	},
 }
 

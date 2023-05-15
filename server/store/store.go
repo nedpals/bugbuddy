@@ -1,33 +1,23 @@
 package store
 
 import (
-	"path/filepath"
-
 	sitter "github.com/smacker/go-tree-sitter"
 )
 
 // TODO:
-type Language int
-
-const (
-	UnknownLanguage    Language = 0
-	JavaLanguage       Language = iota
-	PythonLanguage     Language = iota
-	JavaScriptLanguage Language = iota
-)
-
-var formatToLanguageMaps = map[string]Language{
-	".java": JavaLanguage,
-	".py":   PythonLanguage,
-	".js":   JavaScriptLanguage,
-	".mjs":  JavaScriptLanguage,
-	".cjs":  JavaScriptLanguage,
+type SemanticModel struct {
+	Parent   *SemanticModel
+	Symbols  SymbolStore
+	Pos      Position
+	Children []*SemanticModel
 }
 
 type Document struct {
-	content  string
+	content  []byte
 	filepath string
-	language Language
+	language *Language
+	tree     *sitter.Tree
+	model    *SemanticModel
 }
 
 type Store struct {
@@ -37,14 +27,11 @@ type Store struct {
 }
 
 func (st *Store) InsertDocument(path string, content string) {
-	detectedLang := UnknownLanguage
-	if gotLang, ok := formatToLanguageMaps[filepath.Ext(path)]; ok {
-		detectedLang = gotLang
-	}
+	detectedLang := supportedLanguages.DetectByPath(path)
 
 	st.Documents[path] = Document{
 		filepath: path,
-		content:  content,
+		content:  []byte(content),
 		language: detectedLang,
 	}
 }
@@ -52,7 +39,8 @@ func (st *Store) InsertDocument(path string, content string) {
 type SymbolKind int
 
 const (
-	VariableSym SymbolKind = 0
+	UnknownSym  SymbolKind = 0
+	VariableSym SymbolKind = iota
 	FunctionSym SymbolKind = iota
 	ClassSym    SymbolKind = iota
 	StructSym   SymbolKind = iota
@@ -60,18 +48,35 @@ const (
 )
 
 type Symbol struct {
-	Name string     `json:"name"`
-	Kind SymbolKind `json:"kind"`
-	Pos  Position   `json:"pos"`
+	version int
+	Name    string     `json:"name"`
+	Kind    SymbolKind `json:"kind"`
+	Pos     Position   `json:"pos"`
 }
 
 type Position struct {
-	Line   int `json:"line"`
-	Column int `json:"column"`
+	StartLine   int `json:"start_line"`
+	StartColumn int `json:"start_column"`
+	EndLine     int `json:"end_line"`
+	EndColumn   int `json:"end_column"`
+	StartIndex  int
+	EndIndex    int
 }
 
-type SymbolStore []Store
+type SymbolStore []*Symbol
 
-func (store *SymbolStore) AddFromSitter(node sitter.Node) {
-
+func (store SymbolStore) Add(doc Document, node sitter.Node) {
+	store = append(store, &Symbol{
+		version: 1,
+		Name:    node.Content(doc.content),
+		Kind:    doc.language.NodeKind(node),
+		Pos: Position{
+			StartLine:   int(node.StartPoint().Row),
+			StartColumn: int(node.StartPoint().Column),
+			EndLine:     int(node.EndPoint().Row),
+			EndColumn:   int(node.EndPoint().Column),
+			StartIndex:  int(node.StartByte()),
+			EndIndex:    int(node.EndByte()),
+		},
+	})
 }

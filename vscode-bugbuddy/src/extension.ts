@@ -41,9 +41,13 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 	const serverOpts: ServerOptions = () => Promise.resolve(serverProcess);
-	const clientOpts: LanguageClientOptions = {}
+	const clientOpts: LanguageClientOptions = {
+		synchronize: {
+			fileEvents: vscode.workspace.createFileSystemWatcher('**/*.java')
+		}
+	}
 	client = new LanguageClient('BugBuddy LSP', serverOpts, clientOpts);
-	
+
 	client.start()
 		.then(() => {
 			vscode.window.setStatusBarMessage('BugBuddy LSP is ready.', 3000);
