@@ -5,15 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/nedpals/bugbuddy-proto/server/analysis"
+	"github.com/nedpals/bugbuddy-proto/server/analysis/store"
 	"github.com/nedpals/bugbuddy-proto/server/daemon/types"
-	"github.com/nedpals/bugbuddy-proto/server/error_analyzer"
 	"github.com/nedpals/bugbuddy-proto/server/rpc"
-	"github.com/nedpals/bugbuddy-proto/server/store"
 	"github.com/sourcegraph/jsonrpc2"
 )
 
 type Server struct {
-	store            store.Store
+	store            *store.Store
 	connectedClients map[int]types.ClientType
 	errors           []string
 }
@@ -119,16 +119,59 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 	case types.PingMethod:
 		procId := d.getProcessId(r)
 		fmt.Printf("> ping from %d\n", procId)
+		c.Reply(ctx, r.ID, "pong!")
+	case types.ResolveDocumentMethod:
+		var payloadStr struct {
+			Filepath string `json:"filepath"`
+			Content  string `json:"content"`
+		}
+		if err := json.Unmarshal(*r.Params, &payloadStr); err != nil {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Message: "Unable to decode params of method " + r.Method,
+			})
+			return
+		}
+
+		d.store.ResolveDocument(payloadStr.Filepath, payloadStr.Content)
+	case types.UpdateDocumentMethod:
+		var payloadStr struct {
+			Filepath string `json:"filepath"`
+			Content  string `json:"content"`
+		}
+		if err := json.Unmarshal(*r.Params, &payloadStr); err != nil {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Message: "Unable to decode params of method " + r.Method,
+			})
+			return
+		}
+
+		d.store.Documents[payloadStr.Filepath].Content = []byte(payloadStr.Content)
+		d.store.Documents[payloadStr.Filepath].ParseTree()
+
+		// IDEA: create a dependency tree wherein errors will be removed
+		// once the file is updated
+	case types.DeleteDocumentMethod:
+		var filepath string
+		if err := json.Unmarshal(*r.Params, &filepath); err != nil {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Message: "Unable to decode params of method " + r.Method,
+			})
+			return
+		}
+
+		// TODO: use dependency tree
+		delete(d.store.Documents, filepath)
+
 	}
 }
 
-func (d *Server) Collect(ctx context.Context, err string, c *jsonrpc2.Conn) (int, error) {
+func (s *Server) Collect(ctx context.Context, err string, c *jsonrpc2.Conn) (int, error) {
 	fmt.Println(err)
-	d.errors = append(d.errors, err)
+	s.errors = append(s.errors, err)
 
 	// TODO: process error first before notify
-	fmt.Printf("> report new errors to %d clients\n", d.countLspClients())
-	go analyzeAndSendError(ctx, err, c)
+	fmt.Printf("> report new errors to %d clients\n", s.countLspClients())
+	go s.analyzeAndSendError(ctx, err, c)
 
 	return 1, nil
 }
@@ -136,14 +179,20 @@ func (d *Server) Collect(ctx context.Context, err string, c *jsonrpc2.Conn) (int
 func Start(addr string) error {
 	fmt.Println("> daemon started on " + addr)
 	return rpc.StartServer(addr, jsonrpc2.VarintObjectCodec{}, &Server{
+		store:            store.NewStore(),
 		connectedClients: map[int]types.ClientType{},
 		errors:           []string{},
 	})
 }
 
-func analyzeAndSendError(ctx context.Context, err string, c *jsonrpc2.Conn) {
-	suggestion := error_analyzer.Default.Analyze(err)
+func (s Server) analyzeAndSendError(ctx context.Context, err string, c *jsonrpc2.Conn) {
+	errData, _ := analysis.DetectError(err)
+	if errData != nil {
+		s.store.Errors = append(s.store.Errors, errData)
+	}
+
+	// TODO:
 	c.Notify(ctx, string(types.CollectMethod), &types.ErrorReport{
-		Message: suggestion,
+		Message: "",
 	})
 }

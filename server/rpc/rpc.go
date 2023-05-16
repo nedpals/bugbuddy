@@ -2,10 +2,33 @@ package rpc
 
 import (
 	"context"
+	"io"
 	"net"
 
 	"github.com/sourcegraph/jsonrpc2"
 )
+
+type CustomStream struct {
+	io.ReadCloser
+	io.WriteCloser
+}
+
+func (conn *CustomStream) Read(p []byte) (n int, err error) {
+	return conn.ReadCloser.Read(p)
+}
+
+func (conn *CustomStream) Write(p []byte) (n int, err error) {
+	return conn.WriteCloser.Write(p)
+}
+
+func (conn *CustomStream) Close() error {
+	if err := conn.ReadCloser.Close(); err != nil {
+		return err
+	} else if err := conn.WriteCloser.Close(); err != nil {
+		return err
+	}
+	return nil
+}
 
 func StartServer(addr string, codec jsonrpc2.ObjectCodec, h jsonrpc2.Handler) error {
 	l, err := net.Listen("tcp", addr)
@@ -23,10 +46,14 @@ func StartServer(addr string, codec jsonrpc2.ObjectCodec, h jsonrpc2.Handler) er
 			return err
 		}
 
-		jsonrpc2.NewConn(
-			context.Background(),
-			jsonrpc2.NewBufferedStream(conn, codec),
-			asyncH,
-		)
+		go func() {
+			cn := jsonrpc2.NewConn(
+				context.Background(),
+				jsonrpc2.NewBufferedStream(conn, codec),
+				asyncH,
+			)
+			defer cn.Close()
+			<-cn.DisconnectNotify()
+		}()
 	}
 }

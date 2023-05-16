@@ -3,14 +3,15 @@ package lsp_server
 import (
 	"context"
 	"encoding/json"
-	"io"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/nedpals/bugbuddy-proto/server/daemon"
 	daemonClient "github.com/nedpals/bugbuddy-proto/server/daemon/client"
-	"github.com/nedpals/bugbuddy-proto/server/daemon/types"
+	daemonTypes "github.com/nedpals/bugbuddy-proto/server/daemon/types"
+	"github.com/nedpals/bugbuddy-proto/server/rpc"
 	"github.com/sourcegraph/jsonrpc2"
 	lsp "go.lsp.dev/protocol"
 )
@@ -27,16 +28,19 @@ type LspServer struct {
 }
 
 func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) {
+	// TODO: add dynamic language registration
 	c.Notify(ctx, lsp.MethodWindowShowMessage, lsp.ShowMessageParams{
 		Type:    lsp.MessageTypeInfo,
-		Message: r.Method,
+		Message: fmt.Sprintf("[bb-server]: %s", r.Method),
 	})
 
 	switch r.Method {
 	case lsp.MethodInitialize:
 		c.Reply(ctx, r.ID, lsp.InitializeResult{
 			Capabilities: lsp.ServerCapabilities{
-				TextDocumentSync: lsp.TextDocumentSyncKindIncremental,
+				TextDocumentSync:   lsp.TextDocumentSyncKindFull,
+				CompletionProvider: nil,
+				HoverProvider:      nil,
 			},
 			ServerInfo: &lsp.ServerInfo{
 				Name:    "BugBuddy",
@@ -45,65 +49,53 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 		})
 		return
 	case lsp.MethodInitialized:
+		// c.Notify(ctx, lsp.MethodWindowShowMessage, lsp.ShowMessageParams{
+		// 	Type:    lsp.MessageTypeInfo,
+		// 	Message: "Client is connected",
+		// })
+		return
 	case lsp.MethodShutdown:
 		s.daemonClient.Shutdown()
 		c.Reply(ctx, r.ID, json.RawMessage("null"))
 		return
-		c.Notify(ctx, lsp.MethodWindowShowMessage, lsp.ShowMessageParams{
-			Type:    lsp.MessageTypeInfo,
-			Message: "Client is connected",
-		})
+	case lsp.MethodTextDocumentDidOpen:
+		// c.Notify(ctx, lsp.MethodWindowShowMessage, lsp.ShowMessageParams{
+		// 	Type:    lsp.MessageTypeInfo,
+		// 	Message: fmt.Sprintf("[bb-server]: %s", r.Method),
+		// })
 	case lsp.MethodExit:
 		s.doneChan <- 0
 		return
 	}
 }
 
-type connection struct {
-	io.ReadCloser
-	io.WriteCloser
-}
-
-func (conn *connection) Read(p []byte) (n int, err error) {
-	return conn.ReadCloser.Read(p)
-}
-
-func (conn *connection) Write(p []byte) (n int, err error) {
-	return conn.WriteCloser.Write(p)
-}
-
-func (conn *connection) Close() error {
-	if err := conn.ReadCloser.Close(); err != nil {
-		return err
-	} else if err := conn.WriteCloser.Close(); err != nil {
-		return err
-	}
-	return nil
-}
-
 func Start(addr string) error {
+	doneChan := make(chan int, 1)
+
 	lspServer := &LspServer{
 		unpublishedDiagnostics: []string{},
 		publishChan:            make(chan int),
-		doneChan:               make(chan int, 1),
+		doneChan:               doneChan,
 	}
 
 	lspServer.conn = jsonrpc2.NewConn(
 		context.Background(),
-		jsonrpc2.NewBufferedStream(&connection{
+		jsonrpc2.NewBufferedStream(&rpc.CustomStream{
 			ReadCloser:  os.Stdin,
 			WriteCloser: os.Stdout,
 		}, jsonrpc2.VSCodeObjectCodec{}),
 		jsonrpc2.AsyncHandler(lspServer),
 	)
 
-	daemonClient := daemon.Connect(daemon.DEFAULT_PORT, types.LspClientType, func(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) {
+	daemonClient := daemon.NewClient(daemon.DEFAULT_PORT, daemonTypes.LspClientType, func(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) {
+		fmt.Println(r.Method)
+
 		lspServer.conn.Notify(ctx, lsp.MethodWindowShowMessage, lsp.ShowMessageParams{
 			Type:    lsp.MessageTypeInfo,
-			Message: r.Method,
+			Message: fmt.Sprintf("[bugbuddy-client] %s", r.Method),
 		})
 
-		if r.Notif && r.Method == "clients/report" {
+		if r.Notif && daemonTypes.MethodIs(r.Method, daemonTypes.ReportMethod) {
 			lspServer.unpublishedDiagnostics = append(lspServer.unpublishedDiagnostics, "test")
 			lspServer.publishChan <- len(lspServer.unpublishedDiagnostics)
 		}
@@ -117,12 +109,13 @@ func Start(addr string) error {
 		})
 	}
 
-	if err := daemonClient.EnsureConnection(); err != nil {
-		return err
+	if err := daemonClient.Connect(); err != nil {
+		if err := daemonClient.EnsureConnection(); err != nil {
+			return err
+		}
 	}
 
 	lspServer.daemonClient = daemonClient
-
 	exitSignal := make(chan os.Signal, 1)
 	signal.Notify(exitSignal, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
@@ -146,7 +139,7 @@ func Start(addr string) error {
 				Diagnostics: diagnostics,
 			})
 		case eCode := <-lspServer.doneChan:
-			lspServer.daemonClient.Close()
+			daemonClient.Close()
 			lspServer.conn.Close()
 			os.Exit(eCode)
 		}

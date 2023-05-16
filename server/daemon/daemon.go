@@ -11,6 +11,10 @@ import (
 
 const DEFAULT_PORT = ":3434"
 
+func NewClient(addr string, clientType types.ClientType, handlerFunc ...func(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request)) *client.Client {
+	return client.NewClient(addr, clientType, handlerFunc...)
+}
+
 func Connect(addr string, clientType types.ClientType, handlerFunc ...func(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request)) *client.Client {
 	return client.Connect(addr, clientType, handlerFunc...)
 }

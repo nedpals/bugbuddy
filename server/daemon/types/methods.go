@@ -12,8 +12,9 @@ func (n namespace) methodName(method string) Method {
 }
 
 const (
-	serverNamespace  = namespace("$")
-	clientsNamespace = namespace("clients")
+	serverNamespace    = namespace("$")
+	documentsNamespace = namespace("$/documents/")
+	clientsNamespace   = namespace("clients")
 )
 
 // server methods
@@ -24,6 +25,14 @@ var (
 	PingMethod      = serverNamespace.methodName("ping")
 )
 
+// document methods
+var (
+	ResolveDocumentMethod = documentsNamespace.methodName("resolve")
+	UpdateDocumentMethod  = documentsNamespace.methodName("update")
+	DeleteDocumentMethod  = documentsNamespace.methodName("delete")
+)
+
+// client methods
 var (
 	ReportMethod = clientsNamespace.methodName("collect")
 )

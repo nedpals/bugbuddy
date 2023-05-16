@@ -25,7 +25,7 @@ let serverProcess: ChildProcessWithoutNullStreams;
 let client: LanguageClient;
 
 export function activate(context: vscode.ExtensionContext) {
-	vscode.window.showInformationMessage("Launching BugBuddy...");
+	// vscode.window.showInformationMessage("Launching BugBuddy...");
 
 	const customPath = getWorkspaceConfig().get<string>('path', 'bugbuddy');
 	console.log('Launching bug buddy from', customPath);
@@ -42,6 +42,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	const serverOpts: ServerOptions = () => Promise.resolve(serverProcess);
 	const clientOpts: LanguageClientOptions = {
+		documentSelector: [{ scheme: 'file' }],
 		synchronize: {
 			fileEvents: vscode.workspace.createFileSystemWatcher('**/*.java')
 		}

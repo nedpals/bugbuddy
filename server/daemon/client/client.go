@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/nedpals/bugbuddy-proto/server/daemon/types"
+	"github.com/nedpals/bugbuddy-proto/server/rpc"
 	"github.com/sourcegraph/jsonrpc2"
 )
 
@@ -40,7 +41,7 @@ func (c *Client) processIdField() jsonrpc2.CallOption {
 }
 
 func (c *Client) EnsureConnection() error {
-	if c.rpcConn != nil || c.connState == NotConnectedState {
+	if c.rpcConn != nil || c.connState != NotConnectedState {
 		return nil
 	}
 
@@ -71,8 +72,11 @@ func (c *Client) Connect() error {
 
 	c.rpcConn = jsonrpc2.NewConn(
 		context.Background(),
-		jsonrpc2.NewBufferedStream(c.tcpConn, jsonrpc2.VarintObjectCodec{}),
-		c,
+		jsonrpc2.NewBufferedStream(&rpc.CustomStream{
+			ReadCloser:  c.tcpConn,
+			WriteCloser: c.tcpConn,
+		}, jsonrpc2.VarintObjectCodec{}),
+		jsonrpc2.AsyncHandler(c),
 	)
 
 	return c.Handshake()
@@ -101,6 +105,24 @@ func (c *Client) Collect(err string) error {
 	return c.Call(types.CollectMethod, err, nil)
 }
 
+func (c *Client) ResolveDocument(filepath string, content string) error {
+	return c.Notify(types.ResolveDocumentMethod, map[string]any{
+		"filepath": filepath,
+		"content":  content,
+	})
+}
+
+func (c *Client) UpdateDocument(filepath string, content string) error {
+	return c.Notify(types.UpdateDocumentMethod, map[string]any{
+		"filepath": filepath,
+		"content":  content,
+	})
+}
+
+func (c *Client) DeleteDocument(filepath string) error {
+	return c.Notify(types.DeleteDocumentMethod, filepath)
+}
+
 func (c *Client) Handshake() error {
 	err := c.Call(types.HandshakeMethod, &types.ClientInfo{
 		ProcessId:  c.processId,
@@ -112,7 +134,7 @@ func (c *Client) Handshake() error {
 	}
 
 	c.connState = InitializedState
-	return nil
+	return c.Call(types.PingMethod, nil, nil)
 }
 
 func (c *Client) Shutdown() error {
@@ -149,7 +171,7 @@ func startDaemonProcess() error {
 	return nil
 }
 
-func Connect(addr string, clientType types.ClientType, handlerFunc ...func(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request)) *Client {
+func NewClient(addr string, clientType types.ClientType, handlerFunc ...func(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request)) *Client {
 	cl := &Client{
 		addr:       addr,
 		rpcConn:    nil,
@@ -166,6 +188,11 @@ func Connect(addr string, clientType types.ClientType, handlerFunc ...func(ctx c
 		cl.HandleFunc = handlerFunc[0]
 	}
 
+	return cl
+}
+
+func Connect(addr string, clientType types.ClientType, handlerFunc ...func(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request)) *Client {
+	cl := NewClient(addr, clientType, handlerFunc...)
 	cl.Connect()
 	return cl
 }
