@@ -1,13 +1,15 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"log"
+	"os"
 
-	"github.com/nedpals/bugbuddy-proto/server/analysis"
 	"github.com/nedpals/bugbuddy-proto/server/daemon"
 	"github.com/nedpals/bugbuddy-proto/server/daemon/types"
 	"github.com/nedpals/bugbuddy-proto/server/lsp_server"
+	"github.com/nedpals/errgoengine"
 	"github.com/spf13/cobra"
 )
 
@@ -47,9 +49,36 @@ var analyzeCmd = &cobra.Command{
 	Use:   "analyze",
 	Short: "Analyzes a specific error message and returns the suggestion. For testing purposes only",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// TODO:
-		output, _ := analysis.DetectError(args[0])
-		fmt.Println(output)
+		var errMsg string
+		wd, err := os.Getwd()
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		scanner := bufio.NewScanner(os.Stdin)
+		scanner.Split(bufio.ScanLines)
+
+		for scanner.Scan() {
+			if len(errMsg) != 0 {
+				errMsg += "\n"
+			}
+
+			errMsg += scanner.Text()
+		}
+
+		if len(errMsg) == 0 {
+			os.Exit(1)
+		}
+
+		engine := errgoengine.New()
+		template, data, err := engine.Analyze(wd, errMsg)
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		result := engine.Translate(template, data)
+		fmt.Println(result)
+
 		return nil
 	},
 }

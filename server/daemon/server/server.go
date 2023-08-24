@@ -5,17 +5,21 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/nedpals/bugbuddy-proto/server/analysis"
-	"github.com/nedpals/bugbuddy-proto/server/analysis/store"
 	"github.com/nedpals/bugbuddy-proto/server/daemon/types"
 	"github.com/nedpals/bugbuddy-proto/server/rpc"
+	"github.com/nedpals/errgoengine"
 	"github.com/sourcegraph/jsonrpc2"
 )
 
 type Server struct {
-	store            *store.Store
+	engine *errgoengine.ErrgoEngine
+	// TODO: add storage for context data
 	connectedClients map[int]types.ClientType
 	errors           []string
+}
+
+func (d *Server) FS() *SharedFS {
+	return d.engine.FS.(*SharedFS)
 }
 
 func (d *Server) countLspClients() int {
@@ -132,7 +136,7 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 			return
 		}
 
-		d.store.ResolveDocument(payloadStr.Filepath, payloadStr.Content)
+		d.FS().WriteFile(payloadStr.Filepath, []byte(payloadStr.Content))
 	case types.UpdateDocumentMethod:
 		var payloadStr struct {
 			Filepath string `json:"filepath"`
@@ -145,11 +149,9 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 			return
 		}
 
-		d.store.Documents[payloadStr.Filepath].Content = []byte(payloadStr.Content)
-		d.store.Documents[payloadStr.Filepath].ParseTree()
-
 		// IDEA: create a dependency tree wherein errors will be removed
 		// once the file is updated
+		d.FS().WriteFile(payloadStr.Filepath, []byte(payloadStr.Content))
 	case types.DeleteDocumentMethod:
 		var filepath string
 		if err := json.Unmarshal(*r.Params, &filepath); err != nil {
@@ -160,8 +162,7 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 		}
 
 		// TODO: use dependency tree
-		delete(d.store.Documents, filepath)
-
+		d.FS().Remove(filepath)
 	}
 }
 
@@ -171,7 +172,15 @@ func (s *Server) Collect(ctx context.Context, err string, c *jsonrpc2.Conn) (int
 
 	// TODO: process error first before notify
 	fmt.Printf("> report new errors to %d clients\n", s.countLspClients())
-	go s.analyzeAndSendError(ctx, err, c)
+
+	go func() {
+		// TODO: find a way to figure out the working path
+		// s.engine.Analyze()
+
+		c.Notify(ctx, string(types.CollectMethod), &types.ErrorReport{
+			Message: "",
+		})
+	}()
 
 	return 1, nil
 }
@@ -179,20 +188,11 @@ func (s *Server) Collect(ctx context.Context, err string, c *jsonrpc2.Conn) (int
 func Start(addr string) error {
 	fmt.Println("> daemon started on " + addr)
 	return rpc.StartServer(addr, jsonrpc2.VarintObjectCodec{}, &Server{
-		store:            store.NewStore(),
+		engine: &errgoengine.ErrgoEngine{
+			ErrorTemplates: errgoengine.ErrorTemplates{},
+			FS:             &SharedFS{},
+		},
 		connectedClients: map[int]types.ClientType{},
 		errors:           []string{},
-	})
-}
-
-func (s Server) analyzeAndSendError(ctx context.Context, err string, c *jsonrpc2.Conn) {
-	errData, _ := analysis.DetectError(err)
-	if errData != nil {
-		s.store.Errors = append(s.store.Errors, errData)
-	}
-
-	// TODO:
-	c.Notify(ctx, string(types.CollectMethod), &types.ErrorReport{
-		Message: "",
 	})
 }

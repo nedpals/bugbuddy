@@ -1,2 +1,6 @@
+.DS_Store
+
 test/**/*.class
 test/**/.vscode
+
+go.work

@@ -59,10 +59,47 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 		c.Reply(ctx, r.ID, json.RawMessage("null"))
 		return
 	case lsp.MethodTextDocumentDidOpen:
-		// c.Notify(ctx, lsp.MethodWindowShowMessage, lsp.ShowMessageParams{
-		// 	Type:    lsp.MessageTypeInfo,
-		// 	Message: fmt.Sprintf("[bb-server]: %s", r.Method),
-		// })
+		var payload lsp.DidOpenTextDocumentParams
+		if err := json.Unmarshal(*r.Params, &payload); err != nil {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Message: "Unable to decode params of method " + r.Method,
+			})
+			return
+		}
+
+		s.daemonClient.ResolveDocument(
+			payload.TextDocument.URI.Filename(), // TODO:
+			payload.TextDocument.Text,
+		)
+	case lsp.MethodTextDocumentDidChange:
+		var payload lsp.DidChangeTextDocumentParams
+		if err := json.Unmarshal(*r.Params, &payload); err != nil {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Message: "Unable to decode params of method " + r.Method,
+			})
+			return
+		}
+
+		// TODO: create a text document store for tracking
+		// changes, edit the existing text (if any), and send the
+		// newly edited version to the daemon
+
+		// s.daemonClient.UpdateDocument(
+		// 	payload.TextDocument.URI.Filename(), // TODO:
+		// 	// payload.ContentChanges,
+		// )
+	case lsp.MethodTextDocumentDidClose:
+		var payload lsp.DidCloseTextDocumentParams
+		if err := json.Unmarshal(*r.Params, &payload); err != nil {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Message: "Unable to decode params of method " + r.Method,
+			})
+			return
+		}
+
+		s.daemonClient.DeleteDocument(
+			payload.TextDocument.URI.Filename(),
+		)
 	case lsp.MethodExit:
 		s.doneChan <- 0
 		return
@@ -88,8 +125,6 @@ func Start(addr string) error {
 	)
 
 	daemonClient := daemon.NewClient(daemon.DEFAULT_PORT, daemonTypes.LspClientType, func(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) {
-		fmt.Println(r.Method)
-
 		lspServer.conn.Notify(ctx, lsp.MethodWindowShowMessage, lsp.ShowMessageParams{
 			Type:    lsp.MessageTypeInfo,
 			Message: fmt.Sprintf("[bugbuddy-client] %s", r.Method),

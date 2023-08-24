@@ -10,6 +10,12 @@ github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLf
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
 github.com/kr/pty v1.1.1/go.mod h1:pFQYn66WHrOpPYNljwOMqo10TkYh1fy3cYio2l3bCsQ=
 github.com/kr/text v0.1.0/go.mod h1:4Jbv+DJW3UT/LiOwJeYQe1efqtUx/iVham/4vfdArNI=
+github.com/liamg/memoryfs v1.6.0 h1:jAFec2HI1PgMTem5gR7UT8zi9u4BfG5jorCRlLH06W8=
+github.com/liamg/memoryfs v1.6.0/go.mod h1:z7mfqXFQS8eSeBBsFjYLlxYRMRyiPktytvYCYTb3BSk=
+github.com/nedpals/errgoengine v0.0.0-20230823152810-0964c2ceb25e h1:BLFUd2HEbA2mgExEXcznXQDOvhD0wUC9/g7g1nRrMmM=
+github.com/nedpals/errgoengine v0.0.0-20230823152810-0964c2ceb25e/go.mod h1:hoE3uQKKb5u4ugLPlSbt76TA+96rtX7F5spJllXM9Ro=
+github.com/nedpals/errgoengine v0.0.0-20230824150345-afad744b4530 h1:nWWHWTvTOaZnC0tJC6dTrFtHhq6JJYQfuFgvT+OpgLk=
+github.com/nedpals/errgoengine v0.0.0-20230824150345-afad744b4530/go.mod h1:hoE3uQKKb5u4ugLPlSbt76TA+96rtX7F5spJllXM9Ro=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
@@ -19,6 +25,8 @@ github.com/segmentio/encoding v0.3.4 h1:WM4IBnxH8B9TakiM2QD5LyNl9JSndh88QbHqVC+P
 github.com/segmentio/encoding v0.3.4/go.mod h1:n0JeuIqEQrQoPDGsjo8UNd1iA0U8d8+oHAA4E3G3OxM=
 github.com/smacker/go-tree-sitter v0.0.0-20230328150314-b02ac7b4e86d h1:hTwQZG1BOiWXuGmzPl5hg06m6DEkFU3vdYp8weVqsz0=
 github.com/smacker/go-tree-sitter v0.0.0-20230328150314-b02ac7b4e86d/go.mod h1:q99oHDsbP0xRwmn7Vmob8gbSMNyvJ83OauXPSuHQuKE=
+github.com/smacker/go-tree-sitter v0.0.0-20230720070738-0d0a9f78d8f8 h1:DxgjlvWYsb80WEN2Zv3WqJFAg2DKjUQJO6URGdf1x6Y=
+github.com/smacker/go-tree-sitter v0.0.0-20230720070738-0d0a9f78d8f8/go.mod h1:q99oHDsbP0xRwmn7Vmob8gbSMNyvJ83OauXPSuHQuKE=
 github.com/sourcegraph/jsonrpc2 v0.2.0 h1:KjN/dC4fP6aN9030MZCJs9WQbTOjWHhrtKVpzzSrr/U=
 github.com/sourcegraph/jsonrpc2 v0.2.0/go.mod h1:ZafdZgk/axhT1cvZAPOhw+95nz2I/Ra5qMlU4gTRwIo=
 github.com/spf13/cobra v1.6.1 h1:o94oiPyS4KD1mPy2fmcYYHHfCxLqYjJOhGsCHFZtEzA=

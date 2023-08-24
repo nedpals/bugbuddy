@@ -5,10 +5,15 @@ go 1.19
 require go.lsp.dev/protocol v0.12.0
 
 require (
+	github.com/liamg/memoryfs v1.6.0 // indirect
+	github.com/nedpals/errgoengine v0.0.0-20230824150345-afad744b4530 // indirect
+)
+
+require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/segmentio/asm v1.1.3 // indirect
 	github.com/segmentio/encoding v0.3.4 // indirect
-	github.com/smacker/go-tree-sitter v0.0.0-20230328150314-b02ac7b4e86d
+	github.com/smacker/go-tree-sitter v0.0.0-20230720070738-0d0a9f78d8f8
 	github.com/sourcegraph/jsonrpc2 v0.2.0
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/pflag v1.0.5 // indirect
