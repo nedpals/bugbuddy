@@ -12,6 +12,7 @@ import (
 )
 
 type StderrMonitor struct {
+	workingDir   string
 	daemonClient *daemonClient.Client
 	buf          bytes.Buffer
 }
@@ -21,7 +22,7 @@ func (wr *StderrMonitor) Flush() {
 		return
 	}
 
-	if err := wr.daemonClient.Collect(wr.buf.String()); err != nil {
+	if err := wr.daemonClient.Collect(wr.workingDir, wr.buf.String()); err != nil {
 		fmt.Printf("[daemon-rpc|error] %s\n", err.Error())
 	}
 
@@ -42,8 +43,8 @@ func (wr *StderrMonitor) Write(p []byte) (n int, err error) {
 	return wr.buf.Write(p)
 }
 
-func monitorProcess(daemonClient *daemonClient.Client, prog string, args ...string) error {
-	errProcessor := &StderrMonitor{daemonClient: daemonClient}
+func monitorProcess(workingDir string, daemonClient *daemonClient.Client, prog string, args ...string) error {
+	errProcessor := &StderrMonitor{workingDir: workingDir, daemonClient: daemonClient}
 	if err := errProcessor.daemonClient.EnsureConnection(); err != nil {
 		return err
 	}

@@ -105,14 +105,14 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 		delete(d.connectedClients, procId)
 		fmt.Printf("> disconnected: {process_id: %d}\n", procId)
 	case types.CollectMethod:
-		var errorStr string
-		if err := json.Unmarshal(*r.Params, &errorStr); err != nil {
+		var payload types.CollectPayload
+		if err := json.Unmarshal(*r.Params, &payload); err != nil {
 			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
 				Message: "Unable to decode params of method " + r.Method,
 			})
 		}
 
-		n, err := d.Collect(ctx, errorStr, c)
+		n, err := d.Collect(ctx, payload, c)
 		if err != nil {
 			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
 				Message: err.Error(),
@@ -166,16 +166,19 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 	}
 }
 
-func (s *Server) Collect(ctx context.Context, err string, c *jsonrpc2.Conn) (int, error) {
-	fmt.Println(err)
-	s.errors = append(s.errors, err)
+func (s *Server) Collect(ctx context.Context, payload types.CollectPayload, c *jsonrpc2.Conn) (int, error) {
+	// fmt.Println(err)
+	// TODO: idk what to do with this lol
+	// s.errors = append(s.errors, err)
 
 	// TODO: process error first before notify
 	fmt.Printf("> report new errors to %d clients\n", s.countLspClients())
 
 	go func() {
-		// TODO: find a way to figure out the working path
-		// s.engine.Analyze()
+		s.engine.Analyze(
+			payload.WorkingDir,
+			payload.Error,
+		)
 
 		c.Notify(ctx, string(types.CollectMethod), &types.ErrorReport{
 			Message: "",

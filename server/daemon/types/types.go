@@ -13,6 +13,11 @@ type ClientInfo struct {
 	ClientType ClientType `json:"clientType"`
 }
 
+type CollectPayload struct {
+	Error      string
+	WorkingDir string
+}
+
 // TODO: dummy payload for now. should give back instructions instead of the error message
 type ErrorReport struct {
 	Message string

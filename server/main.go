@@ -21,8 +21,13 @@ var rootCmd = &cobra.Command{
 			return fmt.Errorf("you must specify a program to run")
 		}
 
+		wd, err := os.Getwd()
+		if err != nil {
+			log.Fatalln(err)
+		}
+
 		daemonClient := daemon.Connect(daemon.DEFAULT_PORT, types.MonitorClientType)
-		if err := monitorProcess(daemonClient, args[0], args[1:]...); err != nil {
+		if err := monitorProcess(wd, daemonClient, args[0], args[1:]...); err != nil {
 			log.Fatalln(err)
 		}
 		return nil

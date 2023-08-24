@@ -101,8 +101,11 @@ func (c *Client) Handle(ctx context.Context, conn *jsonrpc2.Conn, r *jsonrpc2.Re
 	c.HandleFunc(ctx, conn, r)
 }
 
-func (c *Client) Collect(err string) error {
-	return c.Call(types.CollectMethod, err, nil)
+func (c *Client) Collect(workingDir, err string) error {
+	return c.Call(types.CollectMethod, types.CollectPayload{
+		Error:      err,
+		WorkingDir: workingDir,
+	}, nil)
 }
 
 func (c *Client) ResolveDocument(filepath string, content string) error {
