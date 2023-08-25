@@ -38,7 +38,7 @@ var lspCmd = &cobra.Command{
 	Use:   "lsp",
 	Short: "Starts a language server to be consumed by LSP-supported editors",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return lsp_server.Start(lsp_server.DEFAULT_PORT)
+		return lsp_server.Start()
 	},
 }
 

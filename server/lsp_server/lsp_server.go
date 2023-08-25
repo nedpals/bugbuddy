@@ -16,8 +16,6 @@ import (
 	lsp "go.lsp.dev/protocol"
 )
 
-const DEFAULT_PORT = ":3333"
-
 type LspServer struct {
 	conn                   *jsonrpc2.Conn
 	daemonClient           *daemonClient.Client
