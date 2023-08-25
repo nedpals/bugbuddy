@@ -27,10 +27,10 @@ type LspServer struct {
 
 func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) {
 	// TODO: add dynamic language registration
-	c.Notify(ctx, lsp.MethodWindowShowMessage, lsp.ShowMessageParams{
-		Type:    lsp.MessageTypeInfo,
-		Message: fmt.Sprintf("[bb-server]: %s", r.Method),
-	})
+	// c.Notify(ctx, lsp.MethodWindowShowMessage, lsp.ShowMessageParams{
+	// 	Type:    lsp.MessageTypeInfo,
+	// 	Message: fmt.Sprintf("[bb-server]: %s", r.Method),
+	// })
 
 	switch r.Method {
 	case lsp.MethodInitialize:
@@ -104,7 +104,7 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 	}
 }
 
-func Start(addr string) error {
+func Start() error {
 	ctx := context.Background()
 	doneChan := make(chan int, 1)
 
