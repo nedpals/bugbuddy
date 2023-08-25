@@ -14,7 +14,7 @@ import (
 type Server struct {
 	engine *errgoengine.ErrgoEngine
 	// TODO: add storage for context data
-	connectedClients map[int]types.ClientType
+	connectedClients connectedClients
 	errors           []string
 }
 
@@ -25,8 +25,8 @@ func (d *Server) FS() *SharedFS {
 func (d *Server) countLspClients() int {
 	count := 0
 
-	for _, typ := range d.connectedClients {
-		if typ == types.LspClientType {
+	for _, cl := range d.connectedClients {
+		if cl.clientType == types.LspClientType {
 			count++
 		}
 	}
@@ -98,7 +98,11 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 		}
 
 		fmt.Printf("> connected: {process_id: %d, type: %d}\n", info.ProcessId, info.ClientType)
-		d.connectedClients[info.ProcessId] = info.ClientType
+		d.connectedClients[info.ProcessId] = connectedClient{
+			id:         info.ProcessId,
+			clientType: info.ClientType,
+			conn:       c,
+		}
 		c.Reply(ctx, r.ID, 1)
 	case types.ShutdownMethod:
 		procId := d.getProcessId(r)
@@ -118,7 +122,7 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 				Message: err.Error(),
 			})
 		} else {
-			c.Reply(ctx, r.ID, n)
+			c.Reply(ctx, r.ID, map[string]any{"n_errors": n})
 		}
 	case types.PingMethod:
 		procId := d.getProcessId(r)
@@ -171,16 +175,14 @@ func (s *Server) Collect(ctx context.Context, payload types.CollectPayload, c *j
 	// TODO: process error first before notify
 	fmt.Printf("> report new errors to %d clients\n", s.countLspClients())
 
-	go func() {
-		s.engine.Analyze(
-			payload.WorkingDir,
-			payload.Error,
-		)
+	s.engine.Analyze(
+		payload.WorkingDir,
+		payload.Error,
+	)
 
-		c.Notify(ctx, string(types.CollectMethod), &types.ErrorReport{
-			Message: "",
-		})
-	}()
+	s.connectedClients.Notify(ctx, types.ReportMethod, &types.ErrorReport{
+		Message: payload.Error,
+	}, types.LspClientType)
 
 	return 1, nil
 }
@@ -192,7 +194,7 @@ func Start(addr string) error {
 			ErrorTemplates: errgoengine.ErrorTemplates{},
 			FS:             NewSharedFS(),
 		},
-		connectedClients: map[int]types.ClientType{},
+		connectedClients: connectedClients{},
 		errors:           []string{},
 	})
 }
