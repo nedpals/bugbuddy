@@ -24,6 +24,7 @@ const (
 )
 
 type Client struct {
+	context   context.Context
 	rpcConn   *jsonrpc2.Conn
 	tcpConn   net.Conn
 	addr      string
@@ -54,6 +55,10 @@ func (c *Client) EnsureConnection() error {
 }
 
 func (c *Client) Connect() error {
+	if c.context == nil {
+		c.context = context.Background()
+	}
+
 	conn, err := net.Dial("tcp", c.addr)
 	if err != nil {
 		return err
@@ -71,7 +76,7 @@ func (c *Client) Connect() error {
 	c.tcpConn = conn
 
 	c.rpcConn = jsonrpc2.NewConn(
-		context.Background(),
+		c.context,
 		jsonrpc2.NewBufferedStream(&rpc.CustomStream{
 			ReadCloser:  c.tcpConn,
 			WriteCloser: c.tcpConn,
@@ -90,11 +95,11 @@ func (c *Client) Close() error {
 }
 
 func (c *Client) Call(method types.Method, params any, result any) error {
-	return c.rpcConn.Call(context.Background(), string(method), params, result, c.processIdField())
+	return c.rpcConn.Call(c.context, string(method), params, result, c.processIdField())
 }
 
 func (c *Client) Notify(method types.Method, params any) error {
-	return c.rpcConn.Notify(context.Background(), string(method), params, c.processIdField())
+	return c.rpcConn.Notify(c.context, string(method), params, c.processIdField())
 }
 
 func (c *Client) Handle(ctx context.Context, conn *jsonrpc2.Conn, r *jsonrpc2.Request) {
@@ -174,7 +179,7 @@ func startDaemonProcess() error {
 	return nil
 }
 
-func NewClient(addr string, clientType types.ClientType, handlerFunc ...func(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request)) *Client {
+func NewClient(ctx context.Context, addr string, clientType types.ClientType, handlerFunc ...func(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request)) *Client {
 	cl := &Client{
 		addr:       addr,
 		rpcConn:    nil,
@@ -195,7 +200,7 @@ func NewClient(addr string, clientType types.ClientType, handlerFunc ...func(ctx
 }
 
 func Connect(addr string, clientType types.ClientType, handlerFunc ...func(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request)) *Client {
-	cl := NewClient(addr, clientType, handlerFunc...)
+	cl := NewClient(context.Background(), addr, clientType, handlerFunc...)
 	cl.Connect()
 	return cl
 }

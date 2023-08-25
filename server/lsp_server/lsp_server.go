@@ -107,6 +107,7 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 }
 
 func Start(addr string) error {
+	ctx := context.Background()
 	doneChan := make(chan int, 1)
 
 	lspServer := &LspServer{
@@ -115,16 +116,7 @@ func Start(addr string) error {
 		doneChan:               doneChan,
 	}
 
-	lspServer.conn = jsonrpc2.NewConn(
-		context.Background(),
-		jsonrpc2.NewBufferedStream(&rpc.CustomStream{
-			ReadCloser:  os.Stdin,
-			WriteCloser: os.Stdout,
-		}, jsonrpc2.VSCodeObjectCodec{}),
-		jsonrpc2.AsyncHandler(lspServer),
-	)
-
-	daemonClient := daemon.NewClient(daemon.DEFAULT_PORT, daemonTypes.LspClientType, func(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) {
+	daemonClient := daemon.NewClient(ctx, daemon.DEFAULT_PORT, daemonTypes.LspClientType, func(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) {
 		lspServer.conn.Notify(ctx, lsp.MethodWindowShowMessage, lsp.ShowMessageParams{
 			Type:    lsp.MessageTypeInfo,
 			Message: fmt.Sprintf("[bugbuddy-client] %s", r.Method),
@@ -136,7 +128,6 @@ func Start(addr string) error {
 		}
 	})
 
-	ctx := context.Background()
 	daemonClient.OnReconnect = func() {
 		lspServer.conn.Notify(ctx, lsp.MethodWindowShowMessage, lsp.ShowMessageParams{
 			Type:    lsp.MessageTypeInfo,
@@ -144,13 +135,23 @@ func Start(addr string) error {
 		})
 	}
 
+	lspServer.conn = jsonrpc2.NewConn(
+		ctx,
+		jsonrpc2.NewBufferedStream(&rpc.CustomStream{
+			ReadCloser:  os.Stdin,
+			WriteCloser: os.Stdout,
+		}, jsonrpc2.VSCodeObjectCodec{}),
+		jsonrpc2.AsyncHandler(lspServer),
+	)
+
+	lspServer.daemonClient = daemonClient
+
 	if err := daemonClient.Connect(); err != nil {
 		if err := daemonClient.EnsureConnection(); err != nil {
 			return err
 		}
 	}
 
-	lspServer.daemonClient = daemonClient
 	exitSignal := make(chan os.Signal, 1)
 	signal.Notify(exitSignal, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
