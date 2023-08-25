@@ -193,7 +193,7 @@ func Start(addr string) error {
 	return rpc.StartServer(addr, jsonrpc2.VarintObjectCodec{}, &Server{
 		engine: &errgoengine.ErrgoEngine{
 			ErrorTemplates: errgoengine.ErrorTemplates{},
-			FS:             &SharedFS{},
+			FS:             NewSharedFS(),
 		},
 		connectedClients: map[int]types.ClientType{},
 		errors:           []string{},

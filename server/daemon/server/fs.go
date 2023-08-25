@@ -12,7 +12,7 @@ type SharedFS struct {
 	memfs *memoryfs.FS
 }
 
-func New() *SharedFS {
+func NewSharedFS() *SharedFS {
 	return &SharedFS{
 		memfs: memoryfs.New(),
 	}
