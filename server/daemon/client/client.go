@@ -132,13 +132,16 @@ func (c *Client) DeleteDocument(filepath string) error {
 }
 
 func (c *Client) Handshake() error {
+	var result int
 	err := c.Call(types.HandshakeMethod, &types.ClientInfo{
 		ProcessId:  c.processId,
 		ClientType: c.clientType,
-	}, nil)
+	}, &result)
 
 	if err != nil {
 		return err
+	} else if result != 1 {
+		return fmt.Errorf("failed to handshake with daemon server")
 	}
 
 	c.connState = InitializedState
