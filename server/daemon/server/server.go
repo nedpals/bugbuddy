@@ -125,10 +125,7 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 		fmt.Printf("> ping from %d\n", procId)
 		c.Reply(ctx, r.ID, "pong!")
 	case types.ResolveDocumentMethod:
-		var payloadStr struct {
-			Filepath string `json:"filepath"`
-			Content  string `json:"content"`
-		}
+		var payloadStr types.DocumentPayload
 		if err := json.Unmarshal(*r.Params, &payloadStr); err != nil {
 			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
 				Message: "Unable to decode params of method " + r.Method,
@@ -137,11 +134,9 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 		}
 
 		d.FS().WriteFile(payloadStr.Filepath, []byte(payloadStr.Content))
+		fmt.Printf("> resolved document: %s (len: %d)\n", payloadStr.Filepath, len(payloadStr.Content))
 	case types.UpdateDocumentMethod:
-		var payloadStr struct {
-			Filepath string `json:"filepath"`
-			Content  string `json:"content"`
-		}
+		var payloadStr types.DocumentPayload
 		if err := json.Unmarshal(*r.Params, &payloadStr); err != nil {
 			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
 				Message: "Unable to decode params of method " + r.Method,
@@ -152,9 +147,10 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 		// IDEA: create a dependency tree wherein errors will be removed
 		// once the file is updated
 		d.FS().WriteFile(payloadStr.Filepath, []byte(payloadStr.Content))
+		fmt.Printf("> updated document: %s (len: %d)\n", payloadStr.Filepath, len(payloadStr.Content))
 	case types.DeleteDocumentMethod:
-		var filepath string
-		if err := json.Unmarshal(*r.Params, &filepath); err != nil {
+		var payload types.DocumentIdentifier
+		if err := json.Unmarshal(*r.Params, &payload); err != nil {
 			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
 				Message: "Unable to decode params of method " + r.Method,
 			})
@@ -162,7 +158,8 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 		}
 
 		// TODO: use dependency tree
-		d.FS().Remove(filepath)
+		d.FS().Remove(payload.Filepath)
+		fmt.Printf("> removed document: %s\n", payload.Filepath)
 	}
 }
 

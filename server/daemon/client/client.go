@@ -114,21 +114,23 @@ func (c *Client) Collect(workingDir, err string) error {
 }
 
 func (c *Client) ResolveDocument(filepath string, content string) error {
-	return c.Notify(types.ResolveDocumentMethod, map[string]any{
-		"filepath": filepath,
-		"content":  content,
+	return c.Notify(types.ResolveDocumentMethod, types.DocumentPayload{
+		DocumentIdentifier: types.DocumentIdentifier{Filepath: filepath},
+		Content:            content,
 	})
 }
 
 func (c *Client) UpdateDocument(filepath string, content string) error {
-	return c.Notify(types.UpdateDocumentMethod, map[string]any{
-		"filepath": filepath,
-		"content":  content,
+	return c.Notify(types.UpdateDocumentMethod, types.DocumentPayload{
+		DocumentIdentifier: types.DocumentIdentifier{Filepath: filepath},
+		Content:            content,
 	})
 }
 
 func (c *Client) DeleteDocument(filepath string) error {
-	return c.Notify(types.DeleteDocumentMethod, filepath)
+	return c.Notify(types.DeleteDocumentMethod, types.DocumentIdentifier{
+		Filepath: filepath,
+	})
 }
 
 func (c *Client) Handshake() error {

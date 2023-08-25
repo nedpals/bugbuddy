@@ -18,6 +18,15 @@ type CollectPayload struct {
 	WorkingDir string
 }
 
+type DocumentIdentifier struct {
+	Filepath string `json:"filepath"`
+}
+
+type DocumentPayload struct {
+	DocumentIdentifier
+	Content string `json:"content"`
+}
+
 // TODO: dummy payload for now. should give back instructions instead of the error message
 type ErrorReport struct {
 	Message string
