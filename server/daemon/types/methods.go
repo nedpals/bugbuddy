@@ -1,6 +1,9 @@
 package types
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // for building consistent jsonrpc method proc names
 type namespace string
@@ -8,12 +11,15 @@ type namespace string
 type Method string
 
 func (n namespace) methodName(method string) Method {
+	if strings.HasSuffix(string(n), "/") {
+		return Method(string(n) + method)
+	}
 	return Method(fmt.Sprintf("%s/%s", n, method))
 }
 
 const (
 	serverNamespace    = namespace("$")
-	documentsNamespace = namespace("$/documents/")
+	documentsNamespace = namespace("$/documents")
 	clientsNamespace   = namespace("clients")
 )
 
@@ -34,7 +40,7 @@ var (
 
 // client methods
 var (
-	ReportMethod = clientsNamespace.methodName("collect")
+	ReportMethod = clientsNamespace.methodName("report")
 )
 
 func MethodIs(s string, m Method) bool {
