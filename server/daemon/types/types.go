@@ -1,5 +1,7 @@
 package types
 
+import "github.com/nedpals/errgoengine"
+
 type ClientType int
 
 const (
@@ -29,5 +31,8 @@ type DocumentPayload struct {
 
 // TODO: dummy payload for now. should give back instructions instead of the error message
 type ErrorReport struct {
-	Message string
+	Template string
+	Language string
+	Message  string
+	Location errgoengine.Location
 }

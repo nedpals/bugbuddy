@@ -14,23 +14,20 @@ import (
 	"github.com/nedpals/bugbuddy-proto/server/rpc"
 	"github.com/sourcegraph/jsonrpc2"
 	lsp "go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 )
 
 type LspServer struct {
 	conn                   *jsonrpc2.Conn
 	daemonClient           *daemonClient.Client
 	version                string
-	unpublishedDiagnostics []string
+	unpublishedDiagnostics []daemonTypes.ErrorReport
 	publishChan            chan int
 	doneChan               chan int
 }
 
 func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) {
 	// TODO: add dynamic language registration
-	// c.Notify(ctx, lsp.MethodWindowShowMessage, lsp.ShowMessageParams{
-	// 	Type:    lsp.MessageTypeInfo,
-	// 	Message: fmt.Sprintf("[bb-server]: %s", r.Method),
-	// })
 
 	switch r.Method {
 	case lsp.MethodInitialize:
@@ -69,6 +66,8 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 			payload.TextDocument.URI.Filename(), // TODO:
 			payload.TextDocument.Text,
 		)
+
+		s.publishChan <- len(s.unpublishedDiagnostics)
 	case lsp.MethodTextDocumentDidChange:
 		var payload lsp.DidChangeTextDocumentParams
 		if err := json.Unmarshal(*r.Params, &payload); err != nil {
@@ -98,6 +97,12 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 		s.daemonClient.DeleteDocument(
 			payload.TextDocument.URI.Filename(),
 		)
+
+		s.conn.Notify(ctx, lsp.MethodTextDocumentPublishDiagnostics, lsp.PublishDiagnosticsParams{
+			URI: payload.TextDocument.URI,
+			// TODO: version
+			Diagnostics: []lsp.Diagnostic{},
+		})
 	case lsp.MethodExit:
 		s.doneChan <- 0
 		return
@@ -109,19 +114,23 @@ func Start() error {
 	doneChan := make(chan int, 1)
 
 	lspServer := &LspServer{
-		unpublishedDiagnostics: []string{},
+		unpublishedDiagnostics: []daemonTypes.ErrorReport{},
 		publishChan:            make(chan int),
 		doneChan:               doneChan,
 	}
 
 	daemonClient := daemon.NewClient(ctx, daemon.DEFAULT_PORT, daemonTypes.LspClientType, func(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) {
-		lspServer.conn.Notify(ctx, lsp.MethodWindowShowMessage, lsp.ShowMessageParams{
-			Type:    lsp.MessageTypeInfo,
-			Message: fmt.Sprintf("[bugbuddy-client] %s", r.Method),
-		})
-
 		if r.Notif && daemonTypes.MethodIs(r.Method, daemonTypes.ReportMethod) {
-			lspServer.unpublishedDiagnostics = append(lspServer.unpublishedDiagnostics, "test")
+			var report daemonTypes.ErrorReport
+			if err := json.Unmarshal(*r.Params, &report); err != nil {
+				lspServer.conn.Notify(ctx, lsp.MethodWindowShowMessage, lsp.ShowMessageParams{
+					Type:    lsp.MessageTypeError,
+					Message: fmt.Sprintf("unable to report error: %s", err.Error()),
+				})
+				return
+			}
+
+			lspServer.unpublishedDiagnostics = append(lspServer.unpublishedDiagnostics, report)
 			lspServer.publishChan <- len(lspServer.unpublishedDiagnostics)
 		}
 	})
@@ -161,17 +170,36 @@ func Start() error {
 	for {
 		select {
 		case <-lspServer.publishChan:
-			diagnostics := make([]lsp.Diagnostic, len(lspServer.unpublishedDiagnostics))
-			for n, errMsg := range lspServer.unpublishedDiagnostics {
-				diagnostics[n] = lsp.Diagnostic{
+			diagnosticsMap := map[uri.URI][]lsp.Diagnostic{}
+			for _, errReport := range lspServer.unpublishedDiagnostics {
+				uri := uri.File(errReport.Location.DocumentPath)
+				diagnosticsMap[uri] = append(diagnosticsMap[uri], lsp.Diagnostic{
 					Severity: lsp.DiagnosticSeverityError,
-					Message:  errMsg,
-				}
+					Message:  errReport.Message,
+					Code:     fmt.Sprintf("%s/%s", errReport.Language, errReport.Template),
+					Source:   "BugBuddy",
+					Range: lsp.Range{
+						Start: lsp.Position{
+							Line:      uint32(errReport.Location.Line),
+							Character: uint32(errReport.Location.Column),
+						},
+						End: lsp.Position{
+							Line:      uint32(errReport.Location.Line),
+							Character: uint32(errReport.Location.Column),
+						},
+					},
+				})
 			}
 
-			lspServer.conn.Notify(ctx, lsp.MethodTextDocumentPublishDiagnostics, lsp.PublishDiagnosticsParams{
-				Diagnostics: diagnostics,
-			})
+			// lspServer.unpublishedDiagnostics = nil
+
+			for uri, diagnostics := range diagnosticsMap {
+				lspServer.conn.Notify(ctx, lsp.MethodTextDocumentPublishDiagnostics, lsp.PublishDiagnosticsParams{
+					URI: uri,
+					// TODO: version
+					Diagnostics: diagnostics,
+				})
+			}
 		case eCode := <-lspServer.doneChan:
 			daemonClient.Close()
 			lspServer.conn.Close()

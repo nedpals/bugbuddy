@@ -8,6 +8,7 @@ import (
 	"github.com/nedpals/bugbuddy-proto/server/daemon/types"
 	"github.com/nedpals/bugbuddy-proto/server/rpc"
 	"github.com/nedpals/errgoengine"
+	"github.com/nedpals/errgoengine/error_templates"
 	"github.com/sourcegraph/jsonrpc2"
 )
 
@@ -118,6 +119,7 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 
 		n, err := d.Collect(ctx, payload, c)
 		if err != nil {
+			fmt.Printf("> collect error: %s\n", err.Error())
 			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
 				Message: err.Error(),
 			})
@@ -168,20 +170,19 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 }
 
 func (s *Server) Collect(ctx context.Context, payload types.CollectPayload, c *jsonrpc2.Conn) (int, error) {
-	// fmt.Println(err)
-	// TODO: idk what to do with this lol
-	// s.errors = append(s.errors, err)
+	template, data, err := s.engine.Analyze(payload.WorkingDir, payload.Error)
+	if err != nil {
+		return 0, err
+	}
 
-	// TODO: process error first before notify
+	output := s.engine.Translate(template, data)
+
 	fmt.Printf("> report new errors to %d clients\n", s.countLspClients())
-
-	s.engine.Analyze(
-		payload.WorkingDir,
-		payload.Error,
-	)
-
 	s.connectedClients.Notify(ctx, types.ReportMethod, &types.ErrorReport{
-		Message: payload.Error,
+		Message:  output,
+		Template: template.Name,
+		Language: template.Language.Name,
+		Location: data.MainError.Nearest.Location(),
 	}, types.LspClientType)
 
 	return 1, nil
@@ -189,9 +190,13 @@ func (s *Server) Collect(ctx context.Context, payload types.CollectPayload, c *j
 
 func Start(addr string) error {
 	fmt.Println("> daemon started on " + addr)
+
+	errorTemplates := errgoengine.ErrorTemplates{}
+	error_templates.LoadErrorTemplates(&errorTemplates)
+
 	return rpc.StartServer(addr, jsonrpc2.VarintObjectCodec{}, &Server{
 		engine: &errgoengine.ErrgoEngine{
-			ErrorTemplates: errgoengine.ErrorTemplates{},
+			ErrorTemplates: errorTemplates,
 			FS:             NewSharedFS(),
 		},
 		connectedClients: connectedClients{},
