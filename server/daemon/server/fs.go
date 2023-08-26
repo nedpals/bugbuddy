@@ -4,6 +4,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path/filepath"
 
 	"github.com/liamg/memoryfs"
 )
@@ -27,16 +28,31 @@ func (sfs *SharedFS) WriteFile(name string, content []byte) error {
 }
 
 func (sfs *SharedFS) Open(name string) (fs.File, error) {
-	if file, err := sfs.memfs.Open(name); err != nil {
-		if err := sfs.memfs.WriteLazyFile(name, func() (io.Reader, error) {
-			return os.Open(name)
-		}, 0o700); err != nil {
+	file, err := sfs.memfs.Open(name)
+	if err != nil {
+		file, err := os.Open(name)
+		if err != nil {
 			return nil, err
 		}
+
+		defer file.Close()
+
+		content, err := io.ReadAll(file)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := sfs.memfs.MkdirAll(filepath.Dir(name), 0o700); err != nil {
+			return nil, err
+		}
+
+		if err := sfs.WriteFile(name, content); err != nil {
+			return nil, err
+		}
+
 		return sfs.memfs.Open(name)
-	} else {
-		return file, nil
 	}
+	return file, nil
 }
 
 func (sfs *SharedFS) ReadFile(name string) ([]byte, error) {
@@ -44,5 +60,6 @@ func (sfs *SharedFS) ReadFile(name string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer func() { _ = file.Close() }()
 	return io.ReadAll(file)
 }
