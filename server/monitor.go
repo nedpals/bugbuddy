@@ -33,13 +33,9 @@ func (wr *StderrMonitor) Write(p []byte) (n int, err error) {
 	if len(p) == 0 {
 		return 0, nil
 	}
-
-	if p[0] == 9 {
+	if wr.buf.Len() != 0 {
 		wr.buf.WriteByte('\n')
-	} else if p[0] != 9 && wr.buf.Len() != 0 {
-		wr.Flush()
 	}
-
 	return wr.buf.Write(p)
 }
 
