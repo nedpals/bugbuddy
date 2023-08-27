@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/liamg/memoryfs v1.6.0
-	github.com/nedpals/errgoengine v0.0.0-20230825155256-4caeedbb4854
+	github.com/nedpals/errgoengine v0.0.0-20230826044938-7be918a51738
 	go.lsp.dev/protocol v0.12.0
 )
 
