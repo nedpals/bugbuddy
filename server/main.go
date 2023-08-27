@@ -27,9 +27,14 @@ var rootCmd = &cobra.Command{
 		}
 
 		daemonClient := daemon.Connect(daemon.DEFAULT_PORT, types.MonitorClientType)
-		if err := monitorProcess(wd, daemonClient, args[0], args[1:]...); err != nil {
+		numErrors, errCode, err := monitorProcess(wd, daemonClient, args[0], args[1:]...)
+		if err != nil {
 			log.Fatalln(err)
+		} else if errCode > 0 {
+			os.Stderr.WriteString(fmt.Sprintf("\n\nCatched %d error/s.\n", numErrors))
+			os.Exit(errCode)
 		}
+
 		return nil
 	},
 }

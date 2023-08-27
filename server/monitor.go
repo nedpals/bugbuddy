@@ -12,6 +12,7 @@ import (
 )
 
 type StderrMonitor struct {
+	numErrors    int
 	workingDir   string
 	daemonClient *daemonClient.Client
 	buf          bytes.Buffer
@@ -26,6 +27,8 @@ func (wr *StderrMonitor) Flush() {
 		fmt.Printf("[daemon-rpc|error] %s\n", err.Error())
 	}
 
+	os.Stderr.Write(wr.buf.Bytes())
+	wr.numErrors++
 	wr.buf.Reset()
 }
 
@@ -39,10 +42,10 @@ func (wr *StderrMonitor) Write(p []byte) (n int, err error) {
 	return wr.buf.Write(p)
 }
 
-func monitorProcess(workingDir string, daemonClient *daemonClient.Client, prog string, args ...string) error {
+func monitorProcess(workingDir string, daemonClient *daemonClient.Client, prog string, args ...string) (int, int, error) {
 	errProcessor := &StderrMonitor{workingDir: workingDir, daemonClient: daemonClient}
 	if err := errProcessor.daemonClient.EnsureConnection(); err != nil {
-		return err
+		return errProcessor.numErrors, 1, err
 	}
 
 	defer func() {
@@ -56,9 +59,9 @@ func monitorProcess(workingDir string, daemonClient *daemonClient.Client, prog s
 	progCmd.Stdout = os.Stdout
 	stderrPipe, err := progCmd.StderrPipe()
 	if err != nil {
-		return err
+		return errProcessor.numErrors, 1, err
 	} else if err := progCmd.Start(); err != nil {
-		return err
+		return errProcessor.numErrors, 1, err
 	}
 
 	sc := bufio.NewScanner(stderrPipe)
@@ -66,5 +69,9 @@ func monitorProcess(workingDir string, daemonClient *daemonClient.Client, prog s
 		errProcessor.Write(sc.Bytes())
 	}
 
-	return progCmd.Wait()
+	if err, ok := progCmd.Wait().(*exec.ExitError); ok {
+		return errProcessor.numErrors, err.ExitCode(), nil
+	}
+
+	return errProcessor.numErrors, 0, nil
 }
