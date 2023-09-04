@@ -34,7 +34,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	serverProcess.stderr.on('data', (raw: string | Buffer) => {
 		if (raw instanceof Buffer) {
-			console.error(raw.toString('utf-8'))
+			console.error(raw.toString('utf-8'));
 		} else {
 			console.error(raw);
 		}
@@ -42,11 +42,9 @@ export function activate(context: vscode.ExtensionContext) {
 
 	const serverOpts: ServerOptions = () => Promise.resolve(serverProcess);
 	const clientOpts: LanguageClientOptions = {
-		documentSelector: [{ scheme: 'file' }],
-		synchronize: {
-			fileEvents: vscode.workspace.createFileSystemWatcher('**/*.java')
-		}
-	}
+		documentSelector: [{ scheme: 'file' }]
+	};
+
 	client = new LanguageClient('BugBuddy LSP', serverOpts, clientOpts);
 
 	client.start()
