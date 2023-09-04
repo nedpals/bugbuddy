@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { LanguageClient, LanguageClientOptions, ServerOptions } from 'vscode-languageclient/node'
+import { LanguageClient, LanguageClientOptions, ServerOptions } from 'vscode-languageclient/node';
 import { ChildProcessWithoutNullStreams, spawn } from 'child_process';
 
 function getWorkspaceFolder(uri?: vscode.Uri): vscode.WorkspaceFolder {
@@ -18,7 +18,7 @@ function getWorkspaceConfig(): vscode.WorkspaceConfiguration {
 }
 
 function launchServer(execPath: string) {
-	return spawn(execPath, ["lsp"], {shell: true})
+	return spawn(execPath, ["lsp"], {shell: true});
 }
 
 let serverProcess: ChildProcessWithoutNullStreams;
