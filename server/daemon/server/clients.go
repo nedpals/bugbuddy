@@ -45,3 +45,10 @@ func (clients connectedClients) Notify(ctx context.Context, method types.Method,
 
 	return nil
 }
+
+func (clients connectedClients) Disconnect() {
+	for _, cl := range clients {
+		cl.conn.Close()
+		delete(clients, cl.id)
+	}
+}

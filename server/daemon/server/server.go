@@ -230,13 +230,14 @@ func Start(addr string) error {
 		case err := <-errChan:
 			return err
 		case <-time.After(15 * time.Second):
-			disconnChan <- 1
-		case <-disconnChan:
 			// Disconnect only if CTRL+C is pressed or is launched
 			// as a background terminal
 			if !isTerminal && len(server.connectedClients) == 0 {
-				return nil
+				disconnChan <- 1
 			}
+		case <-disconnChan:
+			server.connectedClients.Disconnect()
+			return nil
 		}
 	}
 }
