@@ -4,7 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
+	"github.com/mattn/go-isatty"
 	"github.com/nedpals/bugbuddy-proto/server/daemon/types"
 	"github.com/nedpals/bugbuddy-proto/server/rpc"
 	"github.com/nedpals/errgoengine"
@@ -189,17 +194,49 @@ func (s *Server) Collect(ctx context.Context, payload types.CollectPayload, c *j
 }
 
 func Start(addr string) error {
-	fmt.Println("> daemon started on " + addr)
+	isTerminal := isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd())
+	errChan := make(chan error, 1)
+	disconnChan := make(chan int, 1)
+	exitSignal := make(chan os.Signal, 1)
 
 	errorTemplates := errgoengine.ErrorTemplates{}
 	error_templates.LoadErrorTemplates(&errorTemplates)
-
-	return rpc.StartServer(addr, jsonrpc2.VarintObjectCodec{}, &Server{
+	server := &Server{
 		engine: &errgoengine.ErrgoEngine{
 			ErrorTemplates: errorTemplates,
 			FS:             NewSharedFS(),
 		},
 		connectedClients: connectedClients{},
 		errors:           []string{},
-	})
+	}
+
+	go func() {
+		fmt.Println("> daemon started on " + addr)
+		errChan <- rpc.StartServer(
+			addr,
+			jsonrpc2.VarintObjectCodec{},
+			server,
+		)
+	}()
+
+	signal.Notify(exitSignal, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-exitSignal
+		disconnChan <- 1
+	}()
+
+	for {
+		select {
+		case err := <-errChan:
+			return err
+		case <-time.After(15 * time.Second):
+			disconnChan <- 1
+		case <-disconnChan:
+			// Disconnect only if CTRL+C is pressed or is launched
+			// as a background terminal
+			if !isTerminal && len(server.connectedClients) == 0 {
+				return nil
+			}
+		}
+	}
 }
