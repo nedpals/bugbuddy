@@ -8,7 +8,7 @@ require (
 	go.lsp.dev/protocol v0.12.0
 )
 
-require github.com/mattn/go-isatty v0.0.19 // indirect
+require github.com/mattn/go-isatty v0.0.19
 
 require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
