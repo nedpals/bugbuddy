@@ -17,27 +17,20 @@ import (
 	"github.com/sourcegraph/jsonrpc2"
 )
 
+type resultError struct {
+	report  *types.ErrorReport
+	version int // TODO: make it working
+}
+
 type Server struct {
 	engine *errgoengine.ErrgoEngine
 	// TODO: add storage for context data
 	connectedClients connectedClients
-	errors           []string
+	errors           []resultError
 }
 
 func (d *Server) FS() *SharedFS {
 	return d.engine.FS.(*SharedFS)
-}
-
-func (d *Server) countLspClients() int {
-	count := 0
-
-	for _, cl := range d.connectedClients {
-		if cl.clientType == types.LspClientType {
-			count++
-		}
-	}
-
-	return count
 }
 
 func (d *Server) getProcessId(r *jsonrpc2.Request) int {
@@ -110,6 +103,11 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 			conn:       c,
 		}
 		c.Reply(ctx, r.ID, 1)
+
+		// Send the existing errors to a newly connected client
+		if info.ClientType == types.LspClientType {
+			d.notifyErrors(ctx, info.ProcessId)
+		}
 	case types.ShutdownMethod:
 		procId := d.getProcessId(r)
 		delete(d.connectedClients, procId)
@@ -182,15 +180,31 @@ func (s *Server) Collect(ctx context.Context, payload types.CollectPayload, c *j
 
 	output := s.engine.Translate(template, data)
 
-	fmt.Printf("> report new errors to %d clients\n", s.countLspClients())
-	s.connectedClients.Notify(ctx, types.ReportMethod, &types.ErrorReport{
-		Message:  output,
-		Template: template.Name,
-		Language: template.Language.Name,
-		Location: data.MainError.Nearest.Location(),
-	}, types.LspClientType)
+	fmt.Printf("> report new errors to %d clients\n", len(s.connectedClients.ProcessIds(types.LspClientType)))
+	s.errors = append(s.errors, resultError{
+		report: &types.ErrorReport{
+			Message:  output,
+			Template: template.Name,
+			Language: template.Language.Name,
+			Location: data.MainError.Nearest.Location(),
+		},
+	})
 
+	s.notifyErrors(ctx)
 	return 1, nil
+}
+
+func (s *Server) notifyErrors(ctx context.Context, procIds_ ...int) {
+	lspClients := procIds_
+	if len(lspClients) == 0 {
+		lspClients = s.connectedClients.ProcessIds(types.LspClientType)
+	}
+
+	// TODO: cleanup old errors
+	for _, r := range s.errors {
+		// TODO: make sure that the errors sent are within their working dir
+		s.connectedClients.Notify(ctx, types.ReportMethod, r.report, lspClients...)
+	}
 }
 
 func Start(addr string) error {
@@ -207,7 +221,7 @@ func Start(addr string) error {
 			FS:             NewSharedFS(),
 		},
 		connectedClients: connectedClients{},
-		errors:           []string{},
+		errors:           []resultError{},
 	}
 
 	go func() {

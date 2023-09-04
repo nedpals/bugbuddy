@@ -16,26 +16,38 @@ type connectedClient struct {
 
 type connectedClients map[int]connectedClient
 
-func (clients connectedClients) Notify(ctx context.Context, method types.Method, params any, clientTypes ...types.ClientType) error {
-	var errs []error
+func (clients connectedClients) ProcessIds(clientTypes ...types.ClientType) []int {
+	procIds := []int{}
 
-	for _, c := range clients {
-		if len(clientTypes) != 0 {
-			shouldBeNotified := false
-
-			for _, ct := range clientTypes {
-				if c.clientType == ct {
-					shouldBeNotified = true
-				}
-			}
-
-			if !shouldBeNotified {
-				continue
+	for _, cl := range clients {
+		for _, ct := range clientTypes {
+			if cl.clientType == ct {
+				procIds = append(procIds, cl.id)
+				break
 			}
 		}
+	}
 
-		if err := c.conn.Notify(ctx, string(method), params); err != nil {
-			errs = append(errs, err)
+	return procIds
+}
+
+func (clients connectedClients) Notify(ctx context.Context, method types.Method, params any, procIds ...int) error {
+	var errs []error
+
+	if len(procIds) != 0 {
+		for _, procId := range procIds {
+			c, ok := clients[procId]
+			if !ok {
+				continue
+			} else if err := c.conn.Notify(ctx, string(method), params); err != nil {
+				errs = append(errs, err)
+			}
+		}
+	} else {
+		for _, c := range clients {
+			if err := c.conn.Notify(ctx, string(method), params); err != nil {
+				errs = append(errs, err)
+			}
 		}
 	}
 
