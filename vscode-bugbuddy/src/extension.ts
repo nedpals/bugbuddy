@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { LanguageClient, LanguageClientOptions, ServerOptions } from 'vscode-languageclient/node';
+import { LanguageClient, LanguageClientOptions, ProtocolRequestType0, ServerOptions, State } from 'vscode-languageclient/node';
 import { ChildProcessWithoutNullStreams, spawn } from 'child_process';
 
 function getWorkspaceFolder(uri?: vscode.Uri): vscode.WorkspaceFolder {
@@ -46,6 +46,21 @@ export function activate(context: vscode.ExtensionContext) {
 	};
 
 	client = new LanguageClient('BugBuddy LSP', serverOpts, clientOpts);
+
+	client.onDidChangeState(event => {
+		if (event.newState === State.Running) {
+			client.onNotification('textDocument/publishDiagnostic', (req) => {
+				const view = vscode.window.createWebviewPanel(
+					'bugbuddyError',
+					'BugBuddy',
+					vscode.ViewColumn.Active,
+					{}
+				);
+
+				view.webview.html = '<h1>Hello BugBuddy</h1>';
+			});
+		}
+	});
 
 	client.start()
 		.then(() => {

@@ -169,6 +169,16 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 		// TODO: use dependency tree
 		d.FS().Remove(payload.Filepath)
 		fmt.Printf("> removed document: %s\n", payload.Filepath)
+	case types.NearestNodeMethod:
+		var payload types.NearestNodePayload
+		if err := json.Unmarshal(*r.Params, &payload); err != nil {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Message: "Unable to decode params of method " + r.Method,
+			})
+			return
+		}
+
+		// doc := d.engine
 	}
 }
 

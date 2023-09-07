@@ -20,6 +20,7 @@ func (n namespace) methodName(method string) Method {
 const (
 	serverNamespace    = namespace("$")
 	documentsNamespace = namespace("$/documents")
+	lspNamespace       = namespace("$/lsp")
 	clientsNamespace   = namespace("clients")
 )
 
@@ -41,6 +42,11 @@ var (
 // client methods
 var (
 	ReportMethod = clientsNamespace.methodName("report")
+)
+
+// lsp-specific methods
+var (
+	NearestNodeMethod = lspNamespace.methodName("nearestNode")
 )
 
 func MethodIs(s string, m Method) bool {

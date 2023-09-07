@@ -24,6 +24,7 @@ type LspServer struct {
 	unpublishedDiagnostics []daemonTypes.ErrorReport
 	publishChan            chan int
 	doneChan               chan int
+	documents              map[uri.URI]string
 }
 
 func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) {
@@ -67,6 +68,7 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 			payload.TextDocument.Text,
 		)
 
+		s.documents[payload.TextDocument.URI] = payload.TextDocument.Text
 		s.publishChan <- len(s.unpublishedDiagnostics)
 	case lsp.MethodTextDocumentDidChange:
 		var payload lsp.DidChangeTextDocumentParams
@@ -81,10 +83,11 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 		// changes, edit the existing text (if any), and send the
 		// newly edited version to the daemon
 
-		// s.daemonClient.UpdateDocument(
-		// 	payload.TextDocument.URI.Filename(), // TODO:
-		// 	// payload.ContentChanges,
-		// )
+		s.daemonClient.UpdateDocument(
+			payload.TextDocument.URI.Filename(), // TODO:
+
+			// payload.ContentChanges,
+		)
 	case lsp.MethodTextDocumentDidClose:
 		var payload lsp.DidCloseTextDocumentParams
 		if err := json.Unmarshal(*r.Params, &payload); err != nil {
@@ -103,6 +106,28 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 			// TODO: version
 			Diagnostics: []lsp.Diagnostic{},
 		})
+	// case lsp.MethodTextDocumentHover:
+	// 	var payload lsp.HoverParams
+	// 	if err := json.Unmarshal(*r.Params, &payload); err != nil {
+	// 		c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+	// 			Message: "Unable to decode params of method " + r.Method,
+	// 		})
+	// 		return
+	// 	}
+
+	// 	err := s.daemonClient.Call(
+	// 		daemonTypes.NearestNodeMethod,
+	// 		daemonTypes.NearestNodePayload{
+	// 			Line: int(payload.Position.Line),
+	// 			Column: int(payload.Position.Character),
+	// 			DocumentIdentifier: daemonTypes.DocumentIdentifier{
+	// 				DocumentPath: payload.TextDocument.URI.Filename()
+	// 			},
+	// 		},
+	// 	)
+	// 	if err != nil {
+
+	// 	}
 	case lsp.MethodExit:
 		s.doneChan <- 0
 		return

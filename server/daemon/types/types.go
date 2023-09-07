@@ -36,3 +36,9 @@ type ErrorReport struct {
 	Message  string
 	Location errgoengine.Location
 }
+
+type NearestNodePayload struct {
+	DocumentIdentifier
+	Line   int
+	Column int
+}
