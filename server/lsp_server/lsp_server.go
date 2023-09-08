@@ -27,6 +27,17 @@ type LspServer struct {
 	documents              map[uri.URI]string
 }
 
+func decodePayload[T any](ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) *T {
+	var payload *T
+	if err := json.Unmarshal(*r.Params, &payload); err != nil {
+		c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+			Message: "Unable to decode params of method " + r.Method,
+		})
+		return nil
+	}
+	return payload
+}
+
 func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) {
 	// TODO: add dynamic language registration
 
@@ -55,11 +66,8 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 		c.Reply(ctx, r.ID, json.RawMessage("null"))
 		return
 	case lsp.MethodTextDocumentDidOpen:
-		var payload lsp.DidOpenTextDocumentParams
-		if err := json.Unmarshal(*r.Params, &payload); err != nil {
-			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
-				Message: "Unable to decode params of method " + r.Method,
-			})
+		payload := decodePayload[lsp.DidOpenTextDocumentParams](ctx, c, r)
+		if payload == nil {
 			return
 		}
 
@@ -71,11 +79,8 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 		s.documents[payload.TextDocument.URI] = payload.TextDocument.Text
 		s.publishChan <- len(s.unpublishedDiagnostics)
 	case lsp.MethodTextDocumentDidChange:
-		var payload lsp.DidChangeTextDocumentParams
-		if err := json.Unmarshal(*r.Params, &payload); err != nil {
-			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
-				Message: "Unable to decode params of method " + r.Method,
-			})
+		payload := decodePayload[lsp.DidChangeTextDocumentParams](ctx, c, r)
+		if payload == nil {
 			return
 		}
 
@@ -89,11 +94,8 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 			// payload.ContentChanges,
 		)
 	case lsp.MethodTextDocumentDidClose:
-		var payload lsp.DidCloseTextDocumentParams
-		if err := json.Unmarshal(*r.Params, &payload); err != nil {
-			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
-				Message: "Unable to decode params of method " + r.Method,
-			})
+		payload := decodePayload[lsp.DidCloseTextDocumentParams](ctx, c, r)
+		if payload == nil {
 			return
 		}
 
@@ -107,11 +109,8 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 			Diagnostics: []lsp.Diagnostic{},
 		})
 	// case lsp.MethodTextDocumentHover:
-	// 	var payload lsp.HoverParams
-	// 	if err := json.Unmarshal(*r.Params, &payload); err != nil {
-	// 		c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
-	// 			Message: "Unable to decode params of method " + r.Method,
-	// 		})
+	// 	payload := decodePayload[lsp.HoverParams](ctx, c, r)
+	// 	if payload == nil {
 	// 		return
 	// 	}
 
