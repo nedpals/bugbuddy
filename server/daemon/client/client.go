@@ -32,7 +32,7 @@ type Client struct {
 	// handshake? bool
 	connState   ConnectionState
 	clientType  types.ClientType
-	HandleFunc  func(context.Context, *jsonrpc2.Conn, *jsonrpc2.Request)
+	HandleFunc  rpc.HandlerFunc
 	OnReconnect func()
 }
 
@@ -103,7 +103,7 @@ func (c *Client) Notify(method types.Method, params any) error {
 }
 
 func (c *Client) Handle(ctx context.Context, conn *jsonrpc2.Conn, r *jsonrpc2.Request) {
-	c.HandleFunc(ctx, conn, r)
+	c.HandleFunc.Handle(ctx, conn, r)
 }
 
 func (c *Client) Collect(workingDir, err string) error {
@@ -184,7 +184,7 @@ func startDaemonProcess() error {
 	return nil
 }
 
-func NewClient(ctx context.Context, addr string, clientType types.ClientType, handlerFunc ...func(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request)) *Client {
+func NewClient(ctx context.Context, addr string, clientType types.ClientType, handlerFunc ...rpc.HandlerFunc) *Client {
 	cl := &Client{
 		addr:       addr,
 		rpcConn:    nil,
@@ -204,7 +204,7 @@ func NewClient(ctx context.Context, addr string, clientType types.ClientType, ha
 	return cl
 }
 
-func Connect(addr string, clientType types.ClientType, handlerFunc ...func(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request)) *Client {
+func Connect(addr string, clientType types.ClientType, handlerFunc ...rpc.HandlerFunc) *Client {
 	cl := NewClient(context.Background(), addr, clientType, handlerFunc...)
 	cl.Connect()
 	return cl

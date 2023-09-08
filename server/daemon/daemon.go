@@ -6,16 +6,16 @@ import (
 	"github.com/nedpals/bugbuddy-proto/server/daemon/client"
 	"github.com/nedpals/bugbuddy-proto/server/daemon/server"
 	"github.com/nedpals/bugbuddy-proto/server/daemon/types"
-	"github.com/sourcegraph/jsonrpc2"
+	"github.com/nedpals/bugbuddy-proto/server/rpc"
 )
 
 const DEFAULT_PORT = ":3434"
 
-func NewClient(ctx context.Context, addr string, clientType types.ClientType, handlerFunc ...func(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request)) *client.Client {
+func NewClient(ctx context.Context, addr string, clientType types.ClientType, handlerFunc ...rpc.HandlerFunc) *client.Client {
 	return client.NewClient(ctx, addr, clientType, handlerFunc...)
 }
 
-func Connect(addr string, clientType types.ClientType, handlerFunc ...func(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request)) *client.Client {
+func Connect(addr string, clientType types.ClientType, handlerFunc ...rpc.HandlerFunc) *client.Client {
 	return client.Connect(addr, clientType, handlerFunc...)
 }
 

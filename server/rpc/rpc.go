@@ -8,6 +8,12 @@ import (
 	"github.com/sourcegraph/jsonrpc2"
 )
 
+type HandlerFunc func(context.Context, *jsonrpc2.Conn, *jsonrpc2.Request)
+
+func (h HandlerFunc) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) {
+	h(ctx, c, r)
+}
+
 type CustomStream struct {
 	io.ReadCloser
 	io.WriteCloser
