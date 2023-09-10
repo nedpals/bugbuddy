@@ -18,6 +18,10 @@ import (
 	"go.lsp.dev/uri"
 )
 
+type ViewErrorPayload struct {
+	Id int `json:"id"`
+}
+
 type LspServer struct {
 	conn                   *jsonrpc2.Conn
 	daemonClient           *daemonClient.Client
@@ -57,10 +61,6 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 		})
 		return
 	case lsp.MethodInitialized:
-		// c.Notify(ctx, lsp.MethodWindowShowMessage, lsp.ShowMessageParams{
-		// 	Type:    lsp.MessageTypeInfo,
-		// 	Message: "Client is connected",
-		// })
 		return
 	case lsp.MethodShutdown:
 		s.daemonClient.Shutdown()
@@ -138,6 +138,15 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 	// 	if err != nil {
 
 	// 	}
+	case "$/viewError":
+		payload := decodePayload[ViewErrorPayload](ctx, c, r)
+		if payload == nil {
+			return
+		}
+
+		gotErr := s.unpublishedDiagnostics[payload.Id]
+		c.Reply(ctx, r.ID, gotErr)
+		return
 	case lsp.MethodExit:
 		s.doneChan <- 0
 		return
@@ -208,13 +217,16 @@ func Start() error {
 		select {
 		case <-lspServer.publishChan:
 			diagnosticsMap := map[uri.URI][]lsp.Diagnostic{}
-			for _, errReport := range lspServer.unpublishedDiagnostics {
-				uri := uri.File(errReport.Location.DocumentPath)
-				diagnosticsMap[uri] = append(diagnosticsMap[uri], lsp.Diagnostic{
+			for idx, errReport := range lspServer.unpublishedDiagnostics {
+				fileUri := uri.File(errReport.Location.DocumentPath)
+				diagnosticsMap[fileUri] = append(diagnosticsMap[fileUri], lsp.Diagnostic{
 					Severity: lsp.DiagnosticSeverityError,
 					Message:  errReport.Message,
 					Code:     fmt.Sprintf("%s/%s", errReport.Language, errReport.Template),
-					Source:   "BugBuddy",
+					CodeDescription: &lsp.CodeDescription{
+						Href: uri.URI(fmt.Sprintf("vscode://nedpals.bugbuddy/openError?id=%d", idx)), // TODO: this should not be exclusive as a vscode URI.
+					},
+					Source: "BugBuddy",
 					Range: lsp.Range{
 						Start: lsp.Position{
 							Line:      uint32(errReport.Location.Line),
