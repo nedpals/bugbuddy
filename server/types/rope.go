@@ -1,5 +1,11 @@
 package types
 
+import (
+	"strings"
+
+	lsp "go.lsp.dev/protocol"
+)
+
 // Rope represents a text data structure.
 type Rope struct {
 	left  *Rope
@@ -78,4 +84,33 @@ func (r *Rope) ToString() string {
 	}
 
 	return r.left.ToString() + r.right.ToString()
+}
+
+// OffsetFromPosition converts an LSP Position to a byte offset.
+func (r *Rope) OffsetFromPosition(position lsp.Position) int {
+	// Split the text into lines
+	lines := strings.Split(r.ToString(), "\n")
+
+	// Ensure line is within valid range
+	lineCount := len(lines)
+	if position.Line >= uint32(lineCount) {
+		position.Line = uint32(lineCount - 1)
+	}
+
+	// Get the line text
+	line := lines[position.Line]
+
+	// Ensure character is within valid range
+	if position.Character >= uint32(len(line)) {
+		position.Character = uint32(len(line) - 1)
+	}
+
+	// Calculate byte offset
+	offset := 0
+	for i := 0; i < int(position.Line); i++ {
+		offset += len(lines[i]) + 1 // Add 1 for the newline character
+	}
+	offset += int(position.Character)
+
+	return offset
 }
