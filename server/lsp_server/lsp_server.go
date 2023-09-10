@@ -152,6 +152,8 @@ func Start() error {
 		unpublishedDiagnostics: []daemonTypes.ErrorReport{},
 		publishChan:            make(chan int),
 		doneChan:               doneChan,
+		documents:              map[uri.URI]*types.Rope{},
+		version:                "1.0",
 	}
 
 	daemonClient := daemon.NewClient(ctx, daemon.DEFAULT_PORT, daemonTypes.LspClientType, func(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) {
