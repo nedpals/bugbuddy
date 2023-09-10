@@ -30,6 +30,7 @@ func (r *Rope) Insert(position int, text string) {
 	if r.left == nil {
 		r.left = NewRope(r.text[:position])
 		r.right = NewRope(r.text[position:])
+		r.left.Insert(position, text)
 	} else if position == len(r.left.text) {
 		r.right.Insert(0, text)
 	} else if position == 0 {
