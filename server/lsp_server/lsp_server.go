@@ -12,6 +12,7 @@ import (
 	daemonClient "github.com/nedpals/bugbuddy-proto/server/daemon/client"
 	daemonTypes "github.com/nedpals/bugbuddy-proto/server/daemon/types"
 	"github.com/nedpals/bugbuddy-proto/server/rpc"
+	"github.com/nedpals/bugbuddy-proto/server/types"
 	"github.com/sourcegraph/jsonrpc2"
 	lsp "go.lsp.dev/protocol"
 	"go.lsp.dev/uri"
@@ -24,7 +25,7 @@ type LspServer struct {
 	unpublishedDiagnostics []daemonTypes.ErrorReport
 	publishChan            chan int
 	doneChan               chan int
-	documents              map[uri.URI]string
+	documents              map[uri.URI]*types.Rope
 }
 
 func decodePayload[T any](ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) *T {
@@ -71,12 +72,12 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 			return
 		}
 
+		s.documents[payload.TextDocument.URI] = types.NewRope(payload.TextDocument.Text)
 		s.daemonClient.ResolveDocument(
-			payload.TextDocument.URI.Filename(), // TODO:
-			payload.TextDocument.Text,
+			payload.TextDocument.URI.Filename(),
+			s.documents[payload.TextDocument.URI].ToString(),
 		)
 
-		s.documents[payload.TextDocument.URI] = payload.TextDocument.Text
 		s.publishChan <- len(s.unpublishedDiagnostics)
 	case lsp.MethodTextDocumentDidChange:
 		payload := decodePayload[lsp.DidChangeTextDocumentParams](ctx, c, r)
@@ -84,14 +85,23 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 			return
 		}
 
-		// TODO: create a text document store for tracking
-		// changes, edit the existing text (if any), and send the
-		// newly edited version to the daemon
+		text := s.documents[payload.TextDocument.URI]
+
+		// edit the existing text (if any), and send the newly edited version to the daemon
+		for _, change := range payload.ContentChanges {
+			startOffset := text.OffsetFromPosition(change.Range.Start)
+
+			if len(change.Text) == 0 {
+				endOffset := text.OffsetFromPosition(change.Range.End)
+				text.Delete(startOffset, endOffset-startOffset)
+			} else {
+				text.Insert(startOffset, change.Text)
+			}
+		}
 
 		s.daemonClient.UpdateDocument(
 			payload.TextDocument.URI.Filename(), // TODO:
-
-			// payload.ContentChanges,
+			text.ToString(),
 		)
 	case lsp.MethodTextDocumentDidClose:
 		payload := decodePayload[lsp.DidCloseTextDocumentParams](ctx, c, r)
@@ -99,6 +109,7 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 			return
 		}
 
+		delete(s.documents, payload.TextDocument.URI)
 		s.daemonClient.DeleteDocument(
 			payload.TextDocument.URI.Filename(),
 		)
