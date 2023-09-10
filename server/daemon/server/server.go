@@ -229,6 +229,7 @@ func Start(addr string) error {
 		engine: &errgoengine.ErrgoEngine{
 			ErrorTemplates: errorTemplates,
 			FS:             NewSharedFS(),
+			SharedStore:    errgoengine.NewEmptyStore(),
 		},
 		connectedClients: connectedClients{},
 		errors:           []resultError{},
