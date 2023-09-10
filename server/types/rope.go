@@ -30,11 +30,12 @@ func (r *Rope) Insert(position int, text string) {
 	if r.left == nil {
 		r.left = NewRope(r.text[:position])
 		r.right = NewRope(r.text[position:])
-		r.left.Insert(position, text)
+	}
+
+	if position == 0 {
+		r.left.Insert(len(r.left.text), text)
 	} else if position == len(r.left.text) {
 		r.right.Insert(0, text)
-	} else if position == 0 {
-		r.left.Insert(len(r.left.text), text)
 	} else {
 		r.left.Insert(position, text)
 	}
@@ -42,21 +43,25 @@ func (r *Rope) Insert(position int, text string) {
 
 // Delete deletes text from the specified position in the rope.
 func (r *Rope) Delete(position, length int) {
-	if position < 0 || position >= len(r.text) || length <= 0 || position+length > len(r.text) {
+	endPosition := position + length
+	if position < 0 || length <= 0 {
 		panic("Invalid position or length")
 	}
 
 	if r.left == nil && r.right == nil {
-		r.text = r.text[:position] + r.text[position+length:]
+		if position >= len(r.text) || endPosition > len(r.text) {
+			panic("Invalid position or length")
+		}
+		r.text = r.text[:position] + r.text[endPosition:]
 		return
 	}
 
 	if position == len(r.left.text) {
 		r.right.Delete(0, length)
-	} else if position+length == len(r.left.text) {
+	} else if endPosition == len(r.left.text) {
 		r.left.Delete(position, length)
 	} else if position < len(r.left.text) {
-		if position+length <= len(r.left.text) {
+		if endPosition <= len(r.left.text) {
 			r.left.Delete(position, length)
 		} else {
 			leftLength := len(r.left.text)

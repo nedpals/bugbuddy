@@ -19,7 +19,22 @@ func TestRope(t *testing.T) {
 
 	t.Run("Delete and ToString", func(t *testing.T) {
 		r := NewRope("Hello, Awesome World!")
-		r.Delete(13, 6)
+		r.Delete(6, 8)
+
+		expected := "Hello, World!"
+		result := r.ToString()
+
+		if result != expected {
+			t.Errorf("Expected: %s, Got: %s", expected, result)
+		}
+	})
+
+	t.Run("Insert Delete and ToString", func(t *testing.T) {
+		r := NewRope("Hello, World!")
+		r.Insert(7, "Awesome ")
+
+		fmt.Println(r.ToString())
+		r.Delete(6, 8)
 
 		expected := "Hello, World!"
 		result := r.ToString()
