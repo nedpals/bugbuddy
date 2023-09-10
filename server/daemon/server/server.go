@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/mattn/go-isatty"
-	"github.com/nedpals/bugbuddy-proto/server/daemon/types"
-	"github.com/nedpals/bugbuddy-proto/server/rpc"
+	"github.com/nedpals/bugbuddy/server/daemon/types"
+	"github.com/nedpals/bugbuddy/server/rpc"
 	"github.com/nedpals/errgoengine"
 	"github.com/nedpals/errgoengine/error_templates"
 	"github.com/sourcegraph/jsonrpc2"

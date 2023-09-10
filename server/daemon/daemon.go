@@ -3,10 +3,10 @@ package daemon
 import (
 	"context"
 
-	"github.com/nedpals/bugbuddy-proto/server/daemon/client"
-	"github.com/nedpals/bugbuddy-proto/server/daemon/server"
-	"github.com/nedpals/bugbuddy-proto/server/daemon/types"
-	"github.com/nedpals/bugbuddy-proto/server/rpc"
+	"github.com/nedpals/bugbuddy/server/daemon/client"
+	"github.com/nedpals/bugbuddy/server/daemon/server"
+	"github.com/nedpals/bugbuddy/server/daemon/types"
+	"github.com/nedpals/bugbuddy/server/rpc"
 )
 
 const DEFAULT_PORT = ":3434"

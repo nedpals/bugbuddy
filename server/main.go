@@ -6,9 +6,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/nedpals/bugbuddy-proto/server/daemon"
-	"github.com/nedpals/bugbuddy-proto/server/daemon/types"
-	"github.com/nedpals/bugbuddy-proto/server/lsp_server"
+	"github.com/nedpals/bugbuddy/server/daemon"
+	"github.com/nedpals/bugbuddy/server/daemon/types"
+	"github.com/nedpals/bugbuddy/server/lsp_server"
 	"github.com/nedpals/errgoengine"
 	"github.com/spf13/cobra"
 )

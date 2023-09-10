@@ -1,4 +1,4 @@
-module github.com/nedpals/bugbuddy-proto/server
+module github.com/nedpals/bugbuddy/server
 
 go 1.19
 

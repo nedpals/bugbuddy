@@ -9,8 +9,8 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/nedpals/bugbuddy-proto/server/daemon/types"
-	"github.com/nedpals/bugbuddy-proto/server/rpc"
+	"github.com/nedpals/bugbuddy/server/daemon/types"
+	"github.com/nedpals/bugbuddy/server/rpc"
 	"github.com/sourcegraph/jsonrpc2"
 )
 

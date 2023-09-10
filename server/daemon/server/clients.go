@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/nedpals/bugbuddy-proto/server/daemon/types"
+	"github.com/nedpals/bugbuddy/server/daemon/types"
 	"github.com/sourcegraph/jsonrpc2"
 )
 

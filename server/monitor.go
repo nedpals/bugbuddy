@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"strings"
 
-	daemonClient "github.com/nedpals/bugbuddy-proto/server/daemon/client"
+	daemonClient "github.com/nedpals/bugbuddy/server/daemon/client"
 )
 
 type StderrMonitor struct {
