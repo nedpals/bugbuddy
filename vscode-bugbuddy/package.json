@@ -1,5 +1,6 @@
 {
   "name": "bugbuddy",
+  "publisher": "nedpals",
   "displayName": "BugBuddy",
   "description": "Official VSCode extension for BugBuddy",
   "version": "0.0.1",
