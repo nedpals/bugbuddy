@@ -61,7 +61,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 			const { template, language, message, location } = await client.sendRequest<ErrorPayload>('$/viewError', { id: parseInt(errorId) });
 
-			if (!currentPathOpenedForError) {
+			if (!currentPathOpenedForError || currentPathOpenedForError !== location.DocumentPath) {
 				currentPathOpenedForError = location.DocumentPath;
 			}
 
