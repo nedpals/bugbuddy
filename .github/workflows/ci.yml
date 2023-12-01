@@ -19,22 +19,22 @@ jobs:
           go-version: 1.21.4
 
       - name: Build binaries (Windows amd64)
-        run: GOOS=windows GOARCH=amd64 go build -o server/cmd/bugbuddy-windows-amd64.exe server
+        run: GOOS=windows GOARCH=amd64 go build -o server/cmd/bugbuddy-windows-amd64.exe ./server
 
       - name: Build binaries (Windows arm64)
-        run: GOOS=windows GOARCH=arm64 go build -o server/cmd/bugbuddy-windows-arm64.exe server
+        run: GOOS=windows GOARCH=arm64 go build -o server/cmd/bugbuddy-windows-arm64.exe ./server
 
       - name: Build binaries (Linux amd64)
-        run: GOOS=linux GOARCH=amd64 go build -o server/cmd/bugbuddy-linux-amd64 server
+        run: GOOS=linux GOARCH=amd64 go build -o server/cmd/bugbuddy-linux-amd64 ./server
 
       - name: Build binaries (Linux arm64)
-        run: GOOS=linux GOARCH=arm64 go build -o server/cmd/bugbuddy-linux-arm64 server
+        run: GOOS=linux GOARCH=arm64 go build -o server/cmd/bugbuddy-linux-arm64 ./server
 
       - name: Build binaries (macOS amd64)
-        run: GOOS=darwin GOARCH=amd64 go build -o server/cmd/bugbuddy-macos-amd64 server
+        run: GOOS=darwin GOARCH=amd64 go build -o server/cmd/bugbuddy-macos-amd64 ./server
 
       - name: Build binaries (macOS arm64)
-        run: GOOS=darwin GOARCH=arm64 go build -o server/cmd/bugbuddy-macos-arm64 server
+        run: GOOS=darwin GOARCH=arm64 go build -o server/cmd/bugbuddy-macos-arm64 ./server
 
   release:
     needs: build
