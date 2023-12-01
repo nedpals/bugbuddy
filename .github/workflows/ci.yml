@@ -19,8 +19,6 @@ jobs:
           cache-dependency-path: ./server/go.sum
           go-version-file: './server/go.mod'
 
-      - run: go mod download
-
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v5
         with:
