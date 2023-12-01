@@ -18,7 +18,6 @@ jobs:
         with:
           cache-dependency-path: ./server/go.sum
           go-version-file: './server/go.mod'
-          go-version: 1.21.4
 
       - run: go mod download
 
