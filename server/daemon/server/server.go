@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/signal"
 	"syscall"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/mattn/go-isatty"
 	"github.com/nedpals/bugbuddy/server/daemon/types"
+	"github.com/nedpals/bugbuddy/server/logger"
 	"github.com/nedpals/bugbuddy/server/rpc"
 	"github.com/nedpals/errgoengine"
 	"github.com/nedpals/errgoengine/error_templates"
@@ -26,11 +28,12 @@ type Server struct {
 	engine *errgoengine.ErrgoEngine
 	// TODO: add storage for context data
 	connectedClients connectedClients
+	logger           *logger.Logger
 	errors           []resultError
 }
 
 func (d *Server) FS() *SharedFS {
-	return d.engine.FS.(*SharedFS)
+	return d.engine.FS.FSs[0].(*SharedFS)
 }
 
 func (d *Server) getProcessId(r *jsonrpc2.Request) int {
@@ -179,16 +182,42 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 		}
 
 		// doc := d.engine
+	case types.RetrieveParticipantIdMethod:
+		c.Reply(ctx, r.ID, d.logger.ParticipantId())
+	case types.GenerateParticipantIdMethod:
+		if err := d.logger.GenerateParticipantId(); err != nil {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Message: err.Error(),
+			})
+			return
+		}
+		c.Reply(ctx, r.ID, d.logger.ParticipantId())
+	case types.ResetLoggerMethod:
+		if err := d.logger.Reset(); err != nil {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Message: err.Error(),
+			})
+			return
+		}
+		c.Reply(ctx, r.ID, "ok")
 	}
 }
 
 func (s *Server) Collect(ctx context.Context, payload types.CollectPayload, c *jsonrpc2.Conn) (int, error) {
+	logPayload := logger.LogParams{
+		ExecutedCommand: payload.Command,
+		ErrorCode:       payload.ErrorCode,
+		ErrorMessage:    payload.Error,
+	}
+
 	template, data, err := s.engine.Analyze(payload.WorkingDir, payload.Error)
 	if err != nil {
 		return 0, err
 	}
 
+	logPayload.FilePath = data.MainError.Document.Path
 	output := s.engine.Translate(template, data)
+	logPayload.GeneratedOutput = output
 
 	fmt.Printf("> report new errors to %d clients\n", len(s.connectedClients.ProcessIds(types.LspClientType)))
 	s.errors = append(s.errors, resultError{
@@ -200,7 +229,14 @@ func (s *Server) Collect(ctx context.Context, payload types.CollectPayload, c *j
 		},
 	})
 
+	s.logger.Log(logPayload)
 	s.notifyErrors(ctx)
+
+	// write files to the logger
+	for _, file := range data.Documents {
+		s.logger.WriteFile(file.Path, []byte(file.Contents))
+	}
+
 	return 1, nil
 }
 

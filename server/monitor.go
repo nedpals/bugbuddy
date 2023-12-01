@@ -14,6 +14,8 @@ import (
 type StderrMonitor struct {
 	numErrors    int
 	workingDir   string
+	exitCode     int
+	args         []string
 	daemonClient *daemonClient.Client
 	buf          bytes.Buffer
 }
@@ -23,7 +25,7 @@ func (wr *StderrMonitor) Flush() {
 		return
 	}
 
-	if err := wr.daemonClient.Collect(wr.workingDir, wr.buf.String()); err != nil {
+	if err := wr.daemonClient.Collect(wr.exitCode, strings.Join(wr.args, ""), wr.workingDir, wr.buf.String()); err != nil {
 		fmt.Printf("[daemon-rpc|error] %s\n", err.Error())
 	}
 
@@ -43,7 +45,12 @@ func (wr *StderrMonitor) Write(p []byte) (n int, err error) {
 }
 
 func monitorProcess(workingDir string, daemonClient *daemonClient.Client, prog string, args ...string) (int, int, error) {
-	errProcessor := &StderrMonitor{workingDir: workingDir, daemonClient: daemonClient}
+	errProcessor := &StderrMonitor{
+		workingDir:   workingDir,
+		daemonClient: daemonClient,
+		args:         append([]string{prog}, args...),
+		exitCode:     1,
+	}
 	if err := errProcessor.daemonClient.EnsureConnection(); err != nil {
 		return errProcessor.numErrors, 1, err
 	}
@@ -70,7 +77,8 @@ func monitorProcess(workingDir string, daemonClient *daemonClient.Client, prog s
 	}
 
 	if err, ok := progCmd.Wait().(*exec.ExitError); ok {
-		return errProcessor.numErrors, err.ExitCode(), nil
+		errProcessor.exitCode = err.ExitCode()
+		return errProcessor.numErrors, errProcessor.exitCode, nil
 	}
 
 	return errProcessor.numErrors, 0, nil

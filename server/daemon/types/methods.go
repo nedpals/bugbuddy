@@ -20,6 +20,7 @@ func (n namespace) methodName(method string) Method {
 const (
 	serverNamespace    = namespace("$")
 	documentsNamespace = namespace("$/documents")
+	loggerNamespace    = namespace("$/logger")
 	lspNamespace       = namespace("$/lsp")
 	clientsNamespace   = namespace("clients")
 )
@@ -30,6 +31,13 @@ var (
 	ShutdownMethod  = serverNamespace.methodName("shutdown")
 	CollectMethod   = serverNamespace.methodName("collect")
 	PingMethod      = serverNamespace.methodName("ping")
+)
+
+// logger methods
+var (
+	RetrieveParticipantIdMethod = loggerNamespace.methodName("participantId/retrieve")
+	GenerateParticipantIdMethod = loggerNamespace.methodName("participantId/generate")
+	ResetLoggerMethod           = loggerNamespace.methodName("reset")
 )
 
 // document methods

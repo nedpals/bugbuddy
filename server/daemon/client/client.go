@@ -106,8 +106,30 @@ func (c *Client) Handle(ctx context.Context, conn *jsonrpc2.Conn, r *jsonrpc2.Re
 	c.HandleFunc.Handle(ctx, conn, r)
 }
 
-func (c *Client) Collect(workingDir, err string) error {
+func (c *Client) GenerateParticipantId() (string, error) {
+	var gotParticipantId string
+	if err := c.Call(types.GenerateParticipantIdMethod, nil, &gotParticipantId); err != nil {
+		return "", err
+	}
+	return gotParticipantId, nil
+}
+
+func (c *Client) RetrieveParticipantId() (string, error) {
+	var gotParticipantId string
+	if err := c.Call(types.RetrieveParticipantIdMethod, nil, &gotParticipantId); err != nil {
+		return "", err
+	}
+	return gotParticipantId, nil
+}
+
+func (c *Client) ResetLogger() error {
+	return c.Call(types.ResetLoggerMethod, nil, nil)
+}
+
+func (c *Client) Collect(errCode int, command, workingDir, err string) error {
 	return c.Call(types.CollectMethod, types.CollectPayload{
+		ErrorCode:  errCode,
+		Command:    command,
 		Error:      err,
 		WorkingDir: workingDir,
 	}, nil)

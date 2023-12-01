@@ -16,6 +16,8 @@ type ClientInfo struct {
 }
 
 type CollectPayload struct {
+	ErrorCode  int
+	Command    string
 	Error      string
 	WorkingDir string
 }

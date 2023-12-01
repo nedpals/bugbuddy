@@ -93,10 +93,56 @@ var analyzeCmd = &cobra.Command{
 	},
 }
 
+var participantIdCmd = &cobra.Command{
+	Use:   "participant-id",
+	Short: "Returns the participant ID of the daemon",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		isGenerate, err := cmd.Flags().GetBool("generate")
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		var participantId string
+		daemonClient := daemon.Connect(daemon.DEFAULT_PORT, types.MonitorClientType)
+
+		if isGenerate {
+			if participantId, err = daemonClient.GenerateParticipantId(); err != nil {
+				log.Fatalln(err)
+			}
+		} else if participantId, err = daemonClient.RetrieveParticipantId(); err != nil {
+			log.Fatalln(err)
+		}
+
+		fmt.Println(participantId)
+		return nil
+	},
+}
+
+var resetCmd = &cobra.Command{
+	Use:   "reset",
+	Short: "Resets the daemon's database",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		daemonClient := daemon.Connect(daemon.DEFAULT_PORT, types.MonitorClientType)
+		if err := daemonClient.ResetLogger(); err != nil {
+			log.Fatalln(err)
+		}
+
+		if _, err := daemonClient.GenerateParticipantId(); err != nil {
+			log.Fatalln(err)
+		}
+
+		fmt.Println("ok")
+		return nil
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(lspCmd)
 	rootCmd.AddCommand(daemonCmd)
 	rootCmd.AddCommand(analyzeCmd)
+	rootCmd.AddCommand(participantIdCmd)
+	participantIdCmd.PersistentFlags().Bool("generate", false, "generate a new participant ID")
+	rootCmd.AddCommand(resetCmd)
 }
 
 func main() {

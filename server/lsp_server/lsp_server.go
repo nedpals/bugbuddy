@@ -229,12 +229,12 @@ func Start() error {
 					Source: "BugBuddy",
 					Range: lsp.Range{
 						Start: lsp.Position{
-							Line:      uint32(errReport.Location.Line),
-							Character: uint32(errReport.Location.Column),
+							Line:      uint32(errReport.Location.StartPos.Line),
+							Character: uint32(errReport.Location.StartPos.Column),
 						},
 						End: lsp.Position{
-							Line:      uint32(errReport.Location.Line),
-							Character: uint32(errReport.Location.Column),
+							Line:      uint32(errReport.Location.EndPos.Line),
+							Character: uint32(errReport.Location.EndPos.Column),
 						},
 					},
 				})
