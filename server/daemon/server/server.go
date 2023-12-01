@@ -223,17 +223,23 @@ func Start(addr string) error {
 	disconnChan := make(chan int, 1)
 	exitSignal := make(chan os.Signal, 1)
 
-	errorTemplates := errgoengine.ErrorTemplates{}
-	error_templates.LoadErrorTemplates(&errorTemplates)
 	server := &Server{
 		engine: &errgoengine.ErrgoEngine{
-			ErrorTemplates: errorTemplates,
-			FS:             NewSharedFS(),
-			SharedStore:    errgoengine.NewEmptyStore(),
+			ErrorTemplates: errgoengine.ErrorTemplates{},
+			FS: &errgoengine.MultiReadFileFS{
+				FSs: []fs.ReadFileFS{
+					NewSharedFS(),
+				},
+			},
+			SharedStore: errgoengine.NewEmptyStore(),
+			OutputGen:   &errgoengine.OutputGenerator{},
 		},
 		connectedClients: connectedClients{},
 		errors:           []resultError{},
+		logger:           logger.NewLoggerPanic(),
 	}
+
+	error_templates.LoadErrorTemplates(&server.engine.ErrorTemplates)
 
 	go func() {
 		fmt.Println("> daemon started on " + addr)
