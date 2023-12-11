@@ -216,16 +216,17 @@ func (s *Server) Collect(ctx context.Context, payload types.CollectPayload, c *j
 	}
 
 	logPayload.FilePath = data.MainError.Document.Path
-	output := s.engine.Translate(template, data)
+	exp, output := s.engine.Translate(template, data)
 	logPayload.GeneratedOutput = output
 
 	fmt.Printf("> report new errors to %d clients\n", len(s.connectedClients.ProcessIds(types.LspClientType)))
 	s.errors = append(s.errors, resultError{
 		report: &types.ErrorReport{
-			Message:  output,
-			Template: template.Name,
-			Language: template.Language.Name,
-			Location: data.MainError.Nearest.Location(),
+			FullMessage: output,
+			Message:     exp,
+			Template:    template.Name,
+			Language:    template.Language.Name,
+			Location:    data.MainError.Nearest.Location(),
 		},
 	})
 

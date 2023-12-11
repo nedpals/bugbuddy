@@ -33,10 +33,11 @@ type DocumentPayload struct {
 
 // TODO: dummy payload for now. should give back instructions instead of the error message
 type ErrorReport struct {
-	Template string               `json:"template"`
-	Language string               `json:"language"`
-	Message  string               `json:"message"`
-	Location errgoengine.Location `json:"location"`
+	Template    string               `json:"template"`
+	Language    string               `json:"language"`
+	FullMessage string               `json:"full_message"`
+	Message     string               `json:"message"`
+	Location    errgoengine.Location `json:"location"`
 }
 
 type NearestNodePayload struct {

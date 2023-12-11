@@ -86,7 +86,7 @@ var analyzeCmd = &cobra.Command{
 			log.Fatalln(err)
 		}
 
-		result := engine.Translate(template, data)
+		_, result := engine.Translate(template, data)
 		fmt.Println(result)
 
 		return nil
