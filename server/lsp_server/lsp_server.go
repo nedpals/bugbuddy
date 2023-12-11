@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
@@ -217,14 +218,19 @@ func Start() error {
 		select {
 		case <-lspServer.publishChan:
 			diagnosticsMap := map[uri.URI][]lsp.Diagnostic{}
-			for idx, errReport := range lspServer.unpublishedDiagnostics {
+
+			for _, errReport := range lspServer.unpublishedDiagnostics {
 				fileUri := uri.File(errReport.Location.DocumentPath)
+				tempExpFilepath := getTempFilePath(fileUri.Filename())
+				openErrorRawUri := fmt.Sprintf("vscode://nedpals.bugbuddy/openError?file=%s", url.QueryEscape(tempExpFilepath))
+				openErrorUri := uri.URI(openErrorRawUri)
+
 				diagnosticsMap[fileUri] = append(diagnosticsMap[fileUri], lsp.Diagnostic{
 					Severity: lsp.DiagnosticSeverityError,
-					Message:  errReport.Message,
+					Message:  fmt.Sprintf("%s\n\nClick the error code for more details.", errReport.Message),
 					Code:     fmt.Sprintf("%s/%s", errReport.Language, errReport.Template),
 					CodeDescription: &lsp.CodeDescription{
-						Href: uri.URI(fmt.Sprintf("vscode://nedpals.bugbuddy/openError?id=%d", idx)), // TODO: this should not be exclusive as a vscode URI.
+						Href: openErrorUri,
 					},
 					Source: "BugBuddy",
 					Range: lsp.Range{
@@ -238,9 +244,16 @@ func Start() error {
 						},
 					},
 				})
+
+				// save the output into a temporary file
+				if file, err := getTempFileForFile(fileUri.Filename()); err == nil {
+					file.WriteString(errReport.FullMessage)
+					file.Close()
+				}
 			}
 
-			// lspServer.unpublishedDiagnostics = nil
+			// delete all unpublished diagnostics
+			lspServer.unpublishedDiagnostics = []daemonTypes.ErrorReport{}
 
 			for uri, diagnostics := range diagnosticsMap {
 				lspServer.conn.Notify(ctx, lsp.MethodTextDocumentPublishDiagnostics, lsp.PublishDiagnosticsParams{
@@ -250,6 +263,7 @@ func Start() error {
 				})
 			}
 		case eCode := <-lspServer.doneChan:
+			removeAllTempFiles()
 			daemonClient.Close()
 			lspServer.conn.Close()
 			os.Exit(eCode)
