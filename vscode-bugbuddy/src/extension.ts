@@ -24,25 +24,6 @@ function launchServer(execPath: string) {
 let serverProcess: ChildProcessWithoutNullStreams;
 let client: LanguageClient;
 
-interface ErrorPayload {
-	template: string
-	language: string
-	message: string
-	location: {
-		// eslint-disable-next-line @typescript-eslint/naming-convention
-		DocumentPath: string
-		// eslint-disable-next-line @typescript-eslint/naming-convention
-		Position: {
-			// eslint-disable-next-line @typescript-eslint/naming-convention
-			Line: number
-			// eslint-disable-next-line @typescript-eslint/naming-convention
-			Column: number
-			// eslint-disable-next-line @typescript-eslint/naming-convention
-			Index: number
-		}
-	}
-}
-
 export function activate(context: vscode.ExtensionContext) {
 	let errorPanel: vscode.WebviewPanel | null;
 	let currentPathOpenedForError: string | null;
@@ -54,39 +35,13 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 
 			const params = new URLSearchParams(uri.query);
-			const errorId = params.get('id');
-			if (!errorId) {
+			const expFile = params.get('file');
+			if (!expFile) {
 				return;
 			}
 
-			const { template, language, message, location } = await client.sendRequest<ErrorPayload>('$/viewError', { id: parseInt(errorId) });
-
-			if (!currentPathOpenedForError || currentPathOpenedForError !== location.DocumentPath) {
-				currentPathOpenedForError = location.DocumentPath;
-			}
-
-			if (vscode.window.activeTextEditor?.document.uri.fsPath !== currentPathOpenedForError) {
-				const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(currentPathOpenedForError));
-				await vscode.window.showTextDocument(doc, vscode.ViewColumn.One, false);
-			}
-
-			if (!errorPanel) {
-				errorPanel = vscode.window.createWebviewPanel(
-					'bugbuddyError',
-					'BugBuddy',
-					vscode.ViewColumn.Two,
-					{}
-				);
-			}
-
-			errorPanel.webview.html = `
-			<h1>${language} / ${template}</h1>
-			<p>${message}</p>
-			`;
-
-			errorPanel.onDidDispose(() => {
-				errorPanel = null;
-			}, null, context.subscriptions);
+			const expFileUri = vscode.Uri.file(decodeURIComponent(expFile.replace(/\+/g, '%20')));
+			await vscode.commands.executeCommand('markdown.showPreviewToSide', expFileUri, { locked: true });
 		},
 	});
 
