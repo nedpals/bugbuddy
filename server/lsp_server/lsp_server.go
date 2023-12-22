@@ -49,6 +49,18 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 
 	switch r.Method {
 	case lsp.MethodInitialize:
+		if !s.daemonClient.IsConnected() {
+			if err := s.daemonClient.Connect(); err != nil {
+				if err := s.daemonClient.EnsureConnection(); err != nil {
+					c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+						Code:    -32002,
+						Message: fmt.Sprintf("Unable to connect to daemon: %s", err.Error()),
+					})
+					return
+				}
+			}
+		}
+
 		c.Reply(ctx, r.ID, lsp.InitializeResult{
 			Capabilities: lsp.ServerCapabilities{
 				TextDocumentSync:   lsp.TextDocumentSyncKindFull,
@@ -199,13 +211,6 @@ func Start() error {
 	)
 
 	lspServer.daemonClient = daemonClient
-
-	if err := daemonClient.Connect(); err != nil {
-		if err := daemonClient.EnsureConnection(); err != nil {
-			return err
-		}
-	}
-
 	exitSignal := make(chan os.Signal, 1)
 	signal.Notify(exitSignal, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
