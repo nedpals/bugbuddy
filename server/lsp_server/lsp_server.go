@@ -51,13 +51,11 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 	case lsp.MethodInitialize:
 		if !s.daemonClient.IsConnected() {
 			if err := s.daemonClient.Connect(); err != nil {
-				if err := s.daemonClient.EnsureConnection(); err != nil {
-					c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
-						Code:    -32002,
-						Message: fmt.Sprintf("Unable to connect to daemon: %s", err.Error()),
-					})
-					return
-				}
+				c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+					Code:    -32002,
+					Message: fmt.Sprintf("Unable to connect to daemon: %s", err.Error()),
+				})
+				return
 			}
 		}
 
@@ -194,7 +192,17 @@ func Start() error {
 		}
 	})
 
-	daemonClient.OnReconnect = func() {
+	daemonClient.SpawnOnMaxReconnect = true
+
+	daemonClient.OnReconnect = func(retries int, _ error) bool {
+		lspServer.conn.Notify(ctx, lsp.MethodWindowShowMessage, lsp.ShowMessageParams{
+			Type:    lsp.MessageTypeInfo,
+			Message: "Reconnecting...",
+		})
+		return retries <= 5
+	}
+
+	daemonClient.OnSpawnDaemon = func() {
 		lspServer.conn.Notify(ctx, lsp.MethodWindowShowMessage, lsp.ShowMessageParams{
 			Type:    lsp.MessageTypeInfo,
 			Message: "Daemon not connected. Launching...",

@@ -37,10 +37,13 @@ func Serve(addr string) error {
 
 func Execute(clientType types.ClientType, execFn func(client *Client) error) error {
 	client := NewClient(context.Background(), CurrentPort(), clientType)
+	client.OnReconnect = func(retries int, err error) bool {
+		fmt.Println("reconnecting...")
+		return retries <= 5
+	}
+	client.SpawnOnMaxReconnect = true
 	if err := client.Connect(); err != nil {
-		if err := client.EnsureConnection(); err != nil {
-			return err
-		}
+		return err
 	}
 	defer client.Close()
 	return execFn(client)

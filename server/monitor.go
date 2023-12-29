@@ -51,10 +51,6 @@ func monitorProcess(workingDir string, daemonClient *daemonClient.Client, prog s
 		args:         append([]string{prog}, args...),
 		exitCode:     1,
 	}
-	if err := errProcessor.daemonClient.EnsureConnection(); err != nil {
-		return errProcessor.numErrors, 1, err
-	}
-
 	defer errProcessor.Flush()
 
 	fmt.Printf("> listening to %s %s...\n", prog, strings.Join(args, " "))

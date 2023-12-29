@@ -3,10 +3,10 @@ package client
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/nedpals/bugbuddy/server/daemon/types"
@@ -23,17 +23,29 @@ const (
 	ShutdownState     ConnectionState = iota
 )
 
+const defaultConnectDelay = 750 * time.Millisecond
+
+type MaxConnRetriesReachedError struct {
+	Err error
+}
+
+func (e *MaxConnRetriesReachedError) Error() string {
+	return fmt.Sprintf("max connection retries reached: %s", e.Err.Error())
+}
+
 type Client struct {
-	context   context.Context
-	rpcConn   *jsonrpc2.Conn
-	tcpConn   net.Conn
-	addr      string
-	processId int
-	// handshake? bool
-	connState   ConnectionState
-	clientType  types.ClientType
-	HandleFunc  rpc.HandlerFunc
-	OnReconnect func()
+	context             context.Context
+	rpcConn             *jsonrpc2.Conn
+	tcpConn             net.Conn
+	connRetries         int
+	addr                string
+	processId           int
+	connState           ConnectionState
+	clientType          types.ClientType
+	HandleFunc          rpc.HandlerFunc
+	SpawnOnMaxReconnect bool
+	OnReconnect         func(int, error) bool
+	OnSpawnDaemon       func()
 }
 
 func (c *Client) processIdField() jsonrpc2.CallOption {
@@ -45,16 +57,33 @@ func (c *Client) IsConnected() bool {
 	return c.rpcConn != nil && c.connState == ConnectedState
 }
 
-func (c *Client) EnsureConnection() error {
-	if c.rpcConn != nil || c.connState != NotConnectedState {
+func (c *Client) tryReconnect(reason error) error {
+	if c.connState != NotConnectedState {
 		return nil
 	}
 
-	c.OnReconnect()
-	if err := startDaemonProcess(); err != nil {
-		log.Fatalln(err)
+	c.connRetries++
+	if shouldReconnect := c.OnReconnect(c.connRetries, reason); !shouldReconnect {
+		if c.SpawnOnMaxReconnect {
+			c.OnSpawnDaemon()
+			if err := startDaemonProcess(); err != nil {
+				return err
+			}
+
+			// avoid looping
+			c.SpawnOnMaxReconnect = false
+			time.Sleep(defaultConnectDelay)
+			if err := c.Connect(); err != nil {
+				return err
+			}
+
+			// revert to original state if connection is successful
+			c.SpawnOnMaxReconnect = true
+		}
+		return &MaxConnRetriesReachedError{reason}
 	}
 
+	time.Sleep(defaultConnectDelay)
 	return c.Connect()
 }
 
@@ -65,6 +94,11 @@ func (c *Client) Connect() error {
 
 	conn, err := net.Dial("tcp", c.addr)
 	if err != nil {
+		if err, ok := err.(*net.OpError); ok {
+			if strings.HasSuffix(err.Err.Error(), "connection refused") {
+				return c.tryReconnect(err)
+			}
+		}
 		return err
 	}
 
@@ -78,6 +112,7 @@ func (c *Client) Connect() error {
 
 	c.connState = ConnectedState
 	c.tcpConn = conn
+	c.connRetries = 0
 
 	c.rpcConn = jsonrpc2.NewConn(
 		c.context,
@@ -99,11 +134,31 @@ func (c *Client) Close() error {
 }
 
 func (c *Client) Call(method types.Method, params any, result any) error {
-	return c.rpcConn.Call(c.context, string(method), params, result, c.processIdField())
+	err := c.rpcConn.Call(c.context, string(method), params, result, c.processIdField())
+	if err == jsonrpc2.ErrClosed {
+		c.connState = NotConnectedState
+		if err := c.tryReconnect(err); err != nil {
+			return err
+		}
+
+		// retry again
+		return c.Call(method, params, result)
+	}
+	return err
 }
 
 func (c *Client) Notify(method types.Method, params any) error {
-	return c.rpcConn.Notify(c.context, string(method), params, c.processIdField())
+	err := c.rpcConn.Notify(c.context, string(method), params, c.processIdField())
+	if err == jsonrpc2.ErrClosed {
+		c.connState = NotConnectedState
+		if err := c.tryReconnect(err); err != nil {
+			return err
+		}
+
+		// retry again
+		return c.Notify(method, params)
+	}
+	return err
 }
 
 func (c *Client) Handle(ctx context.Context, conn *jsonrpc2.Conn, r *jsonrpc2.Request) {
@@ -206,19 +261,20 @@ func startDaemonProcess() error {
 		return err
 	}
 
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(defaultConnectDelay)
 	return nil
 }
 
 func NewClient(ctx context.Context, addr string, clientType types.ClientType, handlerFunc ...rpc.HandlerFunc) *Client {
 	cl := &Client{
-		addr:       addr,
-		rpcConn:    nil,
-		processId:  os.Getpid(),
-		clientType: clientType,
-		connState:  NotConnectedState,
-		HandleFunc: func(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) {},
-		OnReconnect: func() {
+		addr:        addr,
+		rpcConn:     nil,
+		processId:   os.Getpid(),
+		clientType:  clientType,
+		connState:   NotConnectedState,
+		HandleFunc:  func(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) {},
+		OnReconnect: func(retries int, _ error) bool { return retries < 5 },
+		OnSpawnDaemon: func() {
 			fmt.Println("> daemon not started. spawning...")
 		},
 	}
