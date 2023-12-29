@@ -41,6 +41,10 @@ func (c *Client) processIdField() jsonrpc2.CallOption {
 	return jsonrpc2.ExtraField("processId", c.processId)
 }
 
+func (c *Client) IsConnected() bool {
+	return c.rpcConn != nil && c.connState == ConnectedState
+}
+
 func (c *Client) EnsureConnection() error {
 	if c.rpcConn != nil || c.connState != NotConnectedState {
 		return nil
