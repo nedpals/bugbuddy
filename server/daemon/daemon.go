@@ -10,6 +10,7 @@ import (
 	"github.com/nedpals/bugbuddy/server/rpc"
 )
 
+type Client = client.Client
 
 const DEFAULT_PORT = ":3434"
 
@@ -31,4 +32,14 @@ func Connect(addr string, clientType types.ClientType, handlerFunc ...rpc.Handle
 
 func Serve(addr string) error {
 	return server.Start(addr)
+}
+
+func Execute(clientType types.ClientType, execFn func(client *Client) error) error {
+	client := NewClient(context.Background(), CURRENT_DAEMON_PORT, clientType)
+	if err := client.Connect(); err != nil {
+		if err := client.EnsureConnection(); err != nil {
+			return err
+		}
+	}
+	return execFn(client)
 }

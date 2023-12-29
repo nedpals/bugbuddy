@@ -26,13 +26,19 @@ var rootCmd = &cobra.Command{
 			log.Fatalln(err)
 		}
 
-		daemonClient := daemon.Connect(daemon.DEFAULT_PORT, types.MonitorClientType)
-		numErrors, errCode, err := monitorProcess(wd, daemonClient, args[0], args[1:]...)
+		err = daemon.Execute(types.MonitorClientType, func(client *daemon.Client) error {
+			numErrors, errCode, err := monitorProcess(wd, client, args[0], args[1:]...)
+			if err != nil {
+				return err
+			} else if errCode > 0 {
+				os.Stderr.WriteString(fmt.Sprintf("\n\nCatched %d error/s.\n", numErrors))
+				os.Exit(errCode)
+			}
+			return nil
+		})
+
 		if err != nil {
 			log.Fatalln(err)
-		} else if errCode > 0 {
-			os.Stderr.WriteString(fmt.Sprintf("\n\nCatched %d error/s.\n", numErrors))
-			os.Exit(errCode)
 		}
 
 		return nil
@@ -102,18 +108,24 @@ var participantIdCmd = &cobra.Command{
 			log.Fatalln(err)
 		}
 
-		var participantId string
-		daemonClient := daemon.Connect(daemon.DEFAULT_PORT, types.MonitorClientType)
+		err = daemon.Execute(types.MonitorClientType, func(client *daemon.Client) error {
+			var participantId string
 
-		if isGenerate {
-			if participantId, err = daemonClient.GenerateParticipantId(); err != nil {
-				log.Fatalln(err)
+			if isGenerate {
+				if participantId, err = client.GenerateParticipantId(); err != nil {
+					return err
+				}
+			} else if participantId, err = client.RetrieveParticipantId(); err != nil {
+				return err
 			}
-		} else if participantId, err = daemonClient.RetrieveParticipantId(); err != nil {
+
+			fmt.Println(participantId)
+			return nil
+		})
+		if err != nil {
 			log.Fatalln(err)
 		}
 
-		fmt.Println(participantId)
 		return nil
 	},
 }
