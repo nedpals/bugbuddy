@@ -178,7 +178,7 @@ func Start() error {
 		version:                "1.0",
 	}
 
-	daemonClient := daemon.NewClient(ctx, daemon.DEFAULT_PORT, daemonTypes.LspClientType, func(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) {
+	daemonClient := daemon.NewClient(ctx, daemon.CurrentPort(), daemonTypes.LspClientType, func(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) {
 		if r.Notif && daemonTypes.MethodIs(r.Method, daemonTypes.ReportMethod) {
 			var report daemonTypes.ErrorReport
 			if err := json.Unmarshal(*r.Params, &report); err != nil {

@@ -16,6 +16,13 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "bugbuddy",
 	Short: "BugBuddy is a runtime error analyzer and assistant.",
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		port, err := cmd.Flags().GetInt("daemon-port")
+		if err != nil {
+			log.Fatalln(err)
+		}
+		daemon.SetDefaultPort(fmt.Sprintf("%d", port))
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
 			return fmt.Errorf("you must specify a program to run")
@@ -57,7 +64,7 @@ var daemonCmd = &cobra.Command{
 	Use:   "daemon",
 	Short: "Starts a daemon process to collect error messages from programs.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return daemon.Serve(daemon.DEFAULT_PORT)
+		return daemon.Serve(daemon.CurrentPort())
 	},
 }
 
@@ -134,7 +141,7 @@ var resetCmd = &cobra.Command{
 	Use:   "reset",
 	Short: "Resets the daemon's database",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		daemonClient := daemon.Connect(daemon.DEFAULT_PORT, types.MonitorClientType)
+		daemonClient := daemon.Connect(daemon.CurrentPort(), types.MonitorClientType)
 		if err := daemonClient.ResetLogger(); err != nil {
 			log.Fatalln(err)
 		}
@@ -155,6 +162,7 @@ func init() {
 	rootCmd.AddCommand(participantIdCmd)
 	participantIdCmd.PersistentFlags().Bool("generate", false, "generate a new participant ID")
 	rootCmd.AddCommand(resetCmd)
+	rootCmd.PersistentFlags().IntP("daemon-port", "dp", daemon.DEFAULT_PORT, "the port to use for the daemon")
 }
 
 func main() {

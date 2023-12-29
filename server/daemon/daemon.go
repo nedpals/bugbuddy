@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/nedpals/bugbuddy/server/daemon/client"
@@ -12,13 +13,13 @@ import (
 
 type Client = client.Client
 
-const DEFAULT_PORT = ":3434"
+const DEFAULT_PORT = 3434
 
-var CURRENT_DAEMON_PORT = DEFAULT_PORT
+var currentPort = fmt.Sprintf("%d", DEFAULT_PORT)
 
 func init() {
 	if port := os.Getenv("BUGBUDDY_DAEMON_PORT"); len(port) > 0 {
-		CURRENT_DAEMON_PORT = ":" + port
+		SetDefaultPort(port)
 	}
 }
 
@@ -35,7 +36,7 @@ func Serve(addr string) error {
 }
 
 func Execute(clientType types.ClientType, execFn func(client *Client) error) error {
-	client := NewClient(context.Background(), CURRENT_DAEMON_PORT, clientType)
+	client := NewClient(context.Background(), CurrentPort(), clientType)
 	if err := client.Connect(); err != nil {
 		if err := client.EnsureConnection(); err != nil {
 			return err
@@ -43,4 +44,12 @@ func Execute(clientType types.ClientType, execFn func(client *Client) error) err
 	}
 	defer client.Close()
 	return execFn(client)
+}
+
+func SetDefaultPort(port string) {
+	currentPort = port
+}
+
+func CurrentPort() string {
+	return ":" + currentPort
 }
