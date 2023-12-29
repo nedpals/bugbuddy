@@ -41,5 +41,6 @@ func Execute(clientType types.ClientType, execFn func(client *Client) error) err
 			return err
 		}
 	}
+	defer client.Close()
 	return execFn(client)
 }

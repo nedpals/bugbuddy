@@ -55,10 +55,7 @@ func monitorProcess(workingDir string, daemonClient *daemonClient.Client, prog s
 		return errProcessor.numErrors, 1, err
 	}
 
-	defer func() {
-		errProcessor.Flush()
-		errProcessor.daemonClient.Close()
-	}()
+	defer errProcessor.Flush()
 
 	fmt.Printf("> listening to %s %s...\n", prog, strings.Join(args, " "))
 	progCmd := exec.Command(prog, args...)
