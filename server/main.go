@@ -141,16 +141,19 @@ var resetCmd = &cobra.Command{
 	Use:   "reset",
 	Short: "Resets the daemon's database",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		daemonClient := daemon.Connect(daemon.CurrentPort(), types.MonitorClientType)
-		if err := daemonClient.ResetLogger(); err != nil {
+		err := daemon.Execute(types.MonitorClientType, func(client *daemon.Client) error {
+			if err := client.ResetLogger(); err != nil {
+				return err
+			}
+			_, err := client.GenerateParticipantId()
+			if err == nil {
+				fmt.Println("ok")
+			}
+			return err
+		})
+		if err != nil {
 			log.Fatalln(err)
 		}
-
-		if _, err := daemonClient.GenerateParticipantId(); err != nil {
-			log.Fatalln(err)
-		}
-
-		fmt.Println("ok")
 		return nil
 	},
 }
