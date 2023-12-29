@@ -28,12 +28,12 @@ var rootCmd = &cobra.Command{
 			return fmt.Errorf("you must specify a program to run")
 		}
 
-		wd, err := os.Getwd()
-		if err != nil {
-			log.Fatalln(err)
-		}
+		err := daemon.Execute(types.MonitorClientType, func(client *daemon.Client) error {
+			wd, err := os.Getwd()
+			if err != nil {
+				return err
+			}
 
-		err = daemon.Execute(types.MonitorClientType, func(client *daemon.Client) error {
 			numErrors, errCode, err := monitorProcess(wd, client, args[0], args[1:]...)
 			if err != nil {
 				return err
@@ -110,12 +110,12 @@ var participantIdCmd = &cobra.Command{
 	Use:   "participant-id",
 	Short: "Returns the participant ID of the daemon",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		isGenerate, err := cmd.Flags().GetBool("generate")
-		if err != nil {
-			log.Fatalln(err)
-		}
+		err := daemon.Execute(types.MonitorClientType, func(client *daemon.Client) error {
+			isGenerate, err := cmd.Flags().GetBool("generate")
+			if err != nil {
+				return err
+			}
 
-		err = daemon.Execute(types.MonitorClientType, func(client *daemon.Client) error {
 			var participantId string
 
 			if isGenerate {
