@@ -17,7 +17,7 @@ var rootCmd = &cobra.Command{
 	Use:   "bugbuddy",
 	Short: "BugBuddy is a runtime error analyzer and assistant.",
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		port, err := cmd.Flags().GetInt("daemon-port")
+		port, err := cmd.Flags().GetInt("port")
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -162,7 +162,7 @@ func init() {
 	rootCmd.AddCommand(participantIdCmd)
 	participantIdCmd.PersistentFlags().Bool("generate", false, "generate a new participant ID")
 	rootCmd.AddCommand(resetCmd)
-	rootCmd.PersistentFlags().IntP("daemon-port", "dp", daemon.DEFAULT_PORT, "the port to use for the daemon")
+	rootCmd.PersistentFlags().IntP("port", "p", daemon.DEFAULT_PORT, "the port to use for the daemon")
 }
 
 func main() {
