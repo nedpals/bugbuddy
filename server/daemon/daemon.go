@@ -42,10 +42,12 @@ func Execute(clientType types.ClientType, execFn func(client *Client) error) err
 		return retries <= 5
 	}
 	client.SpawnOnMaxReconnect = true
+	// just in case it has a proper connection, still close it.
+	defer client.Close()
+
 	if err := client.Connect(); err != nil {
 		return err
 	}
-	defer client.Close()
 	return execFn(client)
 }
 

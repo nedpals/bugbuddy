@@ -79,6 +79,11 @@ func (c *Client) tryReconnect(reason error) error {
 
 			// revert to original state if connection is successful
 			c.SpawnOnMaxReconnect = true
+
+			// this is important or else the below code will
+			// interpret this as if it is was not able to reach to
+			// the daemon server
+			return nil
 		}
 		return &MaxConnRetriesReachedError{reason}
 	}
@@ -127,6 +132,9 @@ func (c *Client) Connect() error {
 }
 
 func (c *Client) Close() error {
+	if c == nil || c.rpcConn == nil {
+		return nil
+	}
 	if err := c.Shutdown(); err != nil {
 		return err
 	}
