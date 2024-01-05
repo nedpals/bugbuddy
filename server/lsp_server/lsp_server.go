@@ -12,6 +12,7 @@ import (
 	"github.com/nedpals/bugbuddy/server/daemon"
 	daemonClient "github.com/nedpals/bugbuddy/server/daemon/client"
 	daemonTypes "github.com/nedpals/bugbuddy/server/daemon/types"
+	"github.com/nedpals/bugbuddy/server/helpers"
 	"github.com/nedpals/bugbuddy/server/rpc"
 	"github.com/nedpals/bugbuddy/server/types"
 	"github.com/sourcegraph/jsonrpc2"
@@ -21,6 +22,11 @@ import (
 
 type ViewErrorPayload struct {
 	Id int `json:"id"`
+}
+
+type FetchRunCommandPayload struct {
+	LanguageId   string                     `json:"languageId"`
+	TextDocument lsp.TextDocumentIdentifier `json:"textDocument"`
 }
 
 type LspServer struct {
@@ -37,7 +43,7 @@ func decodePayload[T any](ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Req
 	var payload *T
 	if err := json.Unmarshal(*r.Params, &payload); err != nil {
 		c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
-			Message: "Unable to decode params of method " + r.Method,
+			Message: "Unable to decode params of method " + r.Method + ": " + err.Error(),
 		})
 		return nil
 	}
@@ -157,6 +163,23 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 
 		gotErr := s.unpublishedDiagnostics[payload.Id]
 		c.Reply(ctx, r.ID, gotErr)
+		return
+	case "$/fetchRunCommand":
+		payload := decodePayload[FetchRunCommandPayload](ctx, c, r)
+		if payload == nil {
+			return
+		}
+
+		// get the run command based on language id
+		runCommand, err := helpers.GetRunCommand(payload.LanguageId, payload.TextDocument.URI.Filename())
+		if err != nil {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Code:    -32002,
+				Message: fmt.Sprintf("Unable to run program: %s", err.Error()),
+			})
+		}
+
+		c.Reply(ctx, r.ID, map[string]string{"command": runCommand})
 		return
 	case lsp.MethodExit:
 		s.doneChan <- 0

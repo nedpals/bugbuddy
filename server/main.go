@@ -8,6 +8,7 @@ import (
 
 	"github.com/nedpals/bugbuddy/server/daemon"
 	"github.com/nedpals/bugbuddy/server/daemon/types"
+	"github.com/nedpals/bugbuddy/server/helpers"
 	"github.com/nedpals/bugbuddy/server/lsp_server"
 	"github.com/nedpals/errgoengine"
 	"github.com/spf13/cobra"
@@ -158,11 +159,29 @@ var resetCmd = &cobra.Command{
 	},
 }
 
+var runCommandCmd = &cobra.Command{
+	Use:   "run-command [language-id] [file-path]",
+	Short: "Returns the run command for a specific language",
+	Args:  cobra.ExactArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		languageId := args[0]
+		path := args[1]
+		runCmd, err := helpers.GetRunCommand(languageId, path)
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		fmt.Println(runCmd)
+		return nil
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(lspCmd)
 	rootCmd.AddCommand(daemonCmd)
 	rootCmd.AddCommand(analyzeCmd)
 	rootCmd.AddCommand(participantIdCmd)
+	rootCmd.AddCommand(runCommandCmd)
 	participantIdCmd.PersistentFlags().Bool("generate", false, "generate a new participant ID")
 	rootCmd.AddCommand(resetCmd)
 	rootCmd.PersistentFlags().IntP("port", "p", daemon.DEFAULT_PORT, "the port to use for the daemon")

@@ -8,11 +8,45 @@
     "vscode": "^1.76.2"
   },
   "categories": [
+    "Programming Languages",
+    "Education",
+    "Debuggers",
     "Other"
   ],
-  "activationEvents": ["onStartupFinished"],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./out/extension.js",
   "contributes": {
+    "commands": [
+      {
+        "command": "bugbuddy.run",
+        "title": "BugBuddy: Run File / Project",
+        "icon": "$(play)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "bugbuddy.run",
+        "key": "ctrl+alt+n"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "when": "true",
+          "command": "bugbuddy.run",
+          "group": "navigation"
+        }
+      ],
+      "editor/title/run": [
+        {
+          "when": "true",
+          "command": "bugbuddy.run",
+          "group": "navigation"
+        }
+      ]
+    },
     "configuration": {
       "title": "BugBuddy",
       "properties": {
