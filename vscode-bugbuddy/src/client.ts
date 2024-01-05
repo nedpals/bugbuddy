@@ -49,22 +49,6 @@ export function initializeServer() {
 	};
 
 	client = new LanguageClient('BugBuddy LSP', serverOpts, clientOpts);
-
-	client.onDidChangeState(event => {
-		if (event.newState === State.Running) {
-			client.onNotification('textDocument/publishDiagnostic', (req) => {
-				const view = window.createWebviewPanel(
-					'bugbuddyError',
-					'BugBuddy',
-					ViewColumn.Active,
-					{}
-				);
-
-				view.webview.html = '<h1>Hello BugBuddy</h1>';
-			});
-		}
-	});
-
     return client;
 }
 
