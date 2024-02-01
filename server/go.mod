@@ -6,7 +6,7 @@ toolchain go1.21.4
 
 require (
 	github.com/liamg/memoryfs v1.6.0
-	github.com/nedpals/errgoengine v0.0.0-20231228154644-b150fa509a1a
+	github.com/nedpals/errgoengine v0.0.0-20240201012144-02360173e6b6
 	go.lsp.dev/protocol v0.12.0
 )
 
@@ -38,7 +38,7 @@ require (
 	github.com/lucasepe/codename v0.2.0
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/segmentio/encoding v0.4.0 // indirect
-	github.com/smacker/go-tree-sitter v0.0.0-20231219031718-233c2f923ac7 // indirect
+	github.com/smacker/go-tree-sitter v0.0.0-20230720070738-0d0a9f78d8f8 // indirect
 	github.com/sourcegraph/jsonrpc2 v0.2.0
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.5 // indirect
