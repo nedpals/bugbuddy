@@ -54,7 +54,7 @@ func (c *Client) SetId(id int) {
 
 func (c *Client) processIdField() jsonrpc2.CallOption {
 	// TODO: if !handshake { return nil }
-	if c.processId <= 0 {
+	if c.processId < 0 {
 		return nil
 	}
 	return jsonrpc2.ExtraField("processId", c.processId)
@@ -99,31 +99,38 @@ func (c *Client) tryReconnect(reason error) error {
 	return c.Connect()
 }
 
+func (c *Client) SetConn(conn net.Conn) {
+	c.tcpConn = conn
+}
+
 func (c *Client) Connect() error {
 	if c.context == nil {
 		c.context = context.Background()
 	}
 
-	conn, err := net.Dial("tcp", c.addr)
-	if err != nil {
-		if err, ok := err.(*net.OpError); ok {
-			if strings.HasSuffix(err.Err.Error(), "connection refused") {
-				return c.tryReconnect(err)
+	if c.tcpConn == nil {
+		conn, err := net.Dial("tcp", c.addr)
+		if err != nil {
+			if err, ok := err.(*net.OpError); ok {
+				if strings.HasSuffix(err.Err.Error(), "connection refused") {
+					return c.tryReconnect(err)
+				}
 			}
+			return err
 		}
-		return err
-	}
 
-	if err := conn.(*net.TCPConn).SetKeepAlive(true); err != nil {
-		return err
-	}
+		if err := conn.(*net.TCPConn).SetKeepAlive(true); err != nil {
+			return err
+		}
 
-	if err := conn.(*net.TCPConn).SetKeepAlivePeriod(10 * time.Second); err != nil {
-		return err
+		if err := conn.(*net.TCPConn).SetKeepAlivePeriod(10 * time.Second); err != nil {
+			return err
+		}
+
+		c.SetConn(conn)
 	}
 
 	c.connState = ConnectedState
-	c.tcpConn = conn
 	c.connRetries = 0
 
 	c.rpcConn = jsonrpc2.NewConn(
@@ -227,23 +234,23 @@ func (c *Client) Collect(errCode int, command, workingDir, errMsg string) (int, 
 }
 
 func (c *Client) ResolveDocument(filepath string, content string) error {
-	return c.Notify(types.ResolveDocumentMethod, types.DocumentPayload{
+	return c.Call(types.ResolveDocumentMethod, types.DocumentPayload{
 		DocumentIdentifier: types.DocumentIdentifier{Filepath: filepath},
 		Content:            content,
-	})
+	}, nil)
 }
 
 func (c *Client) UpdateDocument(filepath string, content string) error {
-	return c.Notify(types.UpdateDocumentMethod, types.DocumentPayload{
+	return c.Call(types.UpdateDocumentMethod, types.DocumentPayload{
 		DocumentIdentifier: types.DocumentIdentifier{Filepath: filepath},
 		Content:            content,
-	})
+	}, nil)
 }
 
 func (c *Client) DeleteDocument(filepath string) error {
-	return c.Notify(types.DeleteDocumentMethod, types.DocumentIdentifier{
+	return c.Call(types.DeleteDocumentMethod, types.DocumentIdentifier{
 		Filepath: filepath,
-	})
+	}, nil)
 }
 
 func (c *Client) Handshake() error {

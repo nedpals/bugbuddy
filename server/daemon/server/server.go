@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -53,40 +54,35 @@ func (d *Server) FS() *helpers.SharedFS {
 	return d.engine.FS.FSs[0].(*helpers.SharedFS)
 }
 
-func (d *Server) getProcessId(r *jsonrpc2.Request) int {
+func (d *Server) getProcessId(r *jsonrpc2.Request) (int, error) {
 	for _, req := range r.ExtraFields {
 		if req.Name != "processId" {
 			continue
-		} else if procId, ok := req.Value.(json.Number); ok {
-			if num, err := procId.Int64(); err == nil {
-				return int(num)
-			} else {
-				return -1
-			}
-		} else {
-			return -2
 		}
+		procId := req.Value.(json.Number)
+		num, err := procId.Int64()
+		if err != nil {
+			break
+		}
+		return int(num), nil
 	}
-	return -1
+	return -1, errors.New("processId not found")
 }
 
 func (d *Server) checkProcessConnection(r *jsonrpc2.Request) *jsonrpc2.Error {
-	procId := d.getProcessId(r)
+	procId, err := d.getProcessId(r)
+	if err != nil {
+		fmt.Println(err.Error())
+		return &jsonrpc2.Error{
+			Code:    jsonrpc2.CodeInvalidRequest,
+			Message: "Process ID not found",
+		}
+	}
 
 	if _, found := d.connectedClients[procId]; !found {
 		return &jsonrpc2.Error{
 			Code:    jsonrpc2.CodeInvalidRequest,
 			Message: "Process not connected yet.",
-		}
-	} else if procId == -2 {
-		return &jsonrpc2.Error{
-			Code:    jsonrpc2.CodeInvalidRequest,
-			Message: "Invalid process ID",
-		}
-	} else if procId == -1 {
-		return &jsonrpc2.Error{
-			Code:    jsonrpc2.CodeInvalidRequest,
-			Message: "Process ID not found",
 		}
 	}
 
@@ -129,7 +125,14 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 			d.notifyErrors(ctx, info.ProcessId)
 		}
 	case types.ShutdownMethod:
-		procId := d.getProcessId(r)
+		procId, err := d.getProcessId(r)
+		if err != nil {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Message: err.Error(),
+			})
+			return
+		}
+
 		delete(d.connectedClients, procId)
 		fmt.Printf("> disconnected: {process_id: %d}\n", procId)
 	case types.CollectMethod:
@@ -156,7 +159,13 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 			})
 		}
 	case types.PingMethod:
-		procId := d.getProcessId(r)
+		procId, err := d.getProcessId(r)
+		if err != nil {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Message: err.Error(),
+			})
+			return
+		}
 		fmt.Printf("> ping from %d\n", procId)
 		c.Reply(ctx, r.ID, "pong!")
 	case types.ResolveDocumentMethod:
@@ -164,6 +173,13 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 		if err := json.Unmarshal(*r.Params, &payloadStr); err != nil {
 			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
 				Message: "Unable to decode params of method " + r.Method,
+			})
+			return
+		}
+
+		if len(payloadStr.Filepath) == 0 {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Message: "Filepath is empty",
 			})
 			return
 		}
@@ -176,6 +192,7 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 		}
 
 		fmt.Printf("> resolved document: %s (len: %d)\n", payloadStr.Filepath, len(payloadStr.Content))
+		c.Reply(ctx, r.ID, "ok")
 	case types.UpdateDocumentMethod:
 		var payloadStr types.DocumentPayload
 		if err := json.Unmarshal(*r.Params, &payloadStr); err != nil {
@@ -185,10 +202,39 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 			return
 		}
 
+		if len(payloadStr.Filepath) == 0 {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Message: "Filepath is empty",
+			})
+			return
+		}
+
+		// check if the file exists
+		if file, err := d.FS().Open(payloadStr.Filepath); errors.Is(err, fs.ErrNotExist) {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Message: "File does not exist",
+			})
+			return
+		} else if err != nil {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Message: err.Error(),
+			})
+			return
+		} else {
+			file.Close()
+		}
+
 		// IDEA: create a dependency tree wherein errors will be removed
 		// once the file is updated
-		d.FS().WriteFile(payloadStr.Filepath, []byte(payloadStr.Content))
+		if err := d.FS().WriteFile(payloadStr.Filepath, []byte(payloadStr.Content)); err != nil {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Message: err.Error(),
+			})
+			return
+		}
+
 		fmt.Printf("> updated document: %s (len: %d)\n", payloadStr.Filepath, len(payloadStr.Content))
+		c.Reply(ctx, r.ID, "ok")
 	case types.DeleteDocumentMethod:
 		var payload types.DocumentIdentifier
 		if err := json.Unmarshal(*r.Params, &payload); err != nil {
@@ -198,9 +244,23 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 			return
 		}
 
+		if len(payload.Filepath) == 0 {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Message: "Filepath is empty",
+			})
+			return
+		}
+
 		// TODO: use dependency tree
-		d.FS().Remove(payload.Filepath)
+		if err := d.FS().Remove(payload.Filepath); err != nil {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Message: err.Error(),
+			})
+			return
+		}
+
 		fmt.Printf("> removed document: %s\n", payload.Filepath)
+		c.Reply(ctx, r.ID, "ok")
 	case types.NearestNodeMethod:
 		var payload types.NearestNodePayload
 		if err := json.Unmarshal(*r.Params, &payload); err != nil {

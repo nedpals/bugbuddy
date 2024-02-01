@@ -2,29 +2,42 @@ package server_test
 
 import (
 	"context"
+	"net"
 	"testing"
 	"time"
 
 	"github.com/nedpals/bugbuddy/server/daemon/client"
 	"github.com/nedpals/bugbuddy/server/daemon/server"
 	"github.com/nedpals/bugbuddy/server/daemon/types"
+	"github.com/sourcegraph/jsonrpc2"
 )
 
 const defaultAddr = ":3434"
 
-func StartServer() *server.Server {
+func Setup() (*jsonrpc2.Conn, *server.Server, *client.Client) {
 	server := server.NewServer()
-	go func() {
-		server.Start(defaultAddr)
-	}()
-	return server
+	serverConn, clientConn := net.Pipe()
+
+	conn := jsonrpc2.NewConn(
+		context.Background(),
+		jsonrpc2.NewBufferedStream(
+			serverConn,
+			&jsonrpc2.VarintObjectCodec{},
+		),
+		server,
+	)
+
+	client := client.NewClient(context.Background(), defaultAddr, types.MonitorClientType)
+	client.SetConn(clientConn)
+
+	return conn, server, client
 }
 
 func TestHandshake(t *testing.T) {
 	clientId := 1
-	srv := StartServer()
+	conn, srv, client := Setup()
+	defer conn.Close()
 
-	client := client.NewClient(context.TODO(), defaultAddr, types.MonitorClientType)
 	client.SetId(clientId)
 	defer client.Close()
 
@@ -50,9 +63,9 @@ func TestHandshake(t *testing.T) {
 
 func TestShutdown(t *testing.T) {
 	clientId := 1
-	_ = StartServer()
+	conn, _, client := Setup()
+	defer conn.Close()
 
-	client := client.NewClient(context.TODO(), defaultAddr, types.MonitorClientType)
 	client.SetId(clientId)
 	defer client.Close()
 
@@ -79,9 +92,9 @@ func TestShutdown(t *testing.T) {
 
 func TestResolveDocument(t *testing.T) {
 	clientId := 1
-	srv := StartServer()
+	conn, srv, client := Setup()
+	defer conn.Close()
 
-	client := client.NewClient(context.TODO(), defaultAddr, types.MonitorClientType)
 	client.SetId(clientId)
 	defer client.Close()
 
@@ -101,7 +114,7 @@ func TestResolveDocument(t *testing.T) {
 	}
 
 	// wait for the server to process the document
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(200 * time.Millisecond)
 
 	// check if the server has the document
 	file, err := srv.FS().Open("hello.py")
@@ -135,11 +148,11 @@ func TestResolveDocument(t *testing.T) {
 	}
 }
 
-func TestResolveDocument_InvalidParams(t *testing.T) {
+func TestResolveDocument_EmptyFilepath(t *testing.T) {
 	clientId := 1
-	_ = StartServer()
+	conn, _, client := Setup()
+	defer conn.Close()
 
-	client := client.NewClient(context.TODO(), defaultAddr, types.MonitorClientType)
 	client.SetId(clientId)
 	defer client.Close()
 
@@ -153,7 +166,7 @@ func TestResolveDocument_InvalidParams(t *testing.T) {
 	}
 
 	// load the document
-	err := client.Notify(types.ResolveDocumentMethod, 1)
+	err := client.ResolveDocument("", "")
 	if err == nil {
 		t.Fatalf("expected error, got nil")
 	}
@@ -161,9 +174,9 @@ func TestResolveDocument_InvalidParams(t *testing.T) {
 
 func TestDeleteDocument(t *testing.T) {
 	clientId := 1
-	srv := StartServer()
+	conn, srv, client := Setup()
+	defer conn.Close()
 
-	client := client.NewClient(context.TODO(), defaultAddr, types.MonitorClientType)
 	client.SetId(clientId)
 	defer client.Close()
 
@@ -201,11 +214,74 @@ func TestDeleteDocument(t *testing.T) {
 	}
 }
 
+func TestDeleteDocument_EmptyFilepath(t *testing.T) {
+	clientId := 1
+	conn, _, client := Setup()
+	defer conn.Close()
+
+	client.SetId(clientId)
+	defer client.Close()
+
+	if err := client.Connect(); err != nil {
+		t.Fatal(err)
+	}
+
+	// check if client is connected
+	if !client.IsConnected() {
+		t.Fatalf("expected client to be connected")
+	}
+
+	// delete the document
+	err := client.DeleteDocument("")
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+}
+
+func TestDeleteDocument_AlreadyDeleted(t *testing.T) {
+	clientId := 1
+	conn, _, client := Setup()
+	defer conn.Close()
+
+	client.SetId(clientId)
+	defer client.Close()
+
+	if err := client.Connect(); err != nil {
+		t.Fatal(err)
+	}
+
+	// check if client is connected
+	if !client.IsConnected() {
+		t.Fatalf("expected client to be connected")
+	}
+
+	// create the document
+	err := client.ResolveDocument("hello.py", "print(a)")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// delete the document
+	err = client.DeleteDocument("hello.py")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// wait for the server to process the document
+	time.Sleep(100 * time.Millisecond)
+
+	// delete the document again
+	err = client.DeleteDocument("hello.py")
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+}
+
 func TestUpdateDocument(t *testing.T) {
 	clientId := 1
-	srv := StartServer()
+	conn, srv, client := Setup()
+	defer conn.Close()
 
-	client := client.NewClient(context.TODO(), defaultAddr, types.MonitorClientType)
 	client.SetId(clientId)
 	defer client.Close()
 
@@ -259,11 +335,49 @@ func TestUpdateDocument(t *testing.T) {
 	}
 }
 
+func TestUpdateDocument_EmptyFilepath(t *testing.T) {
+	clientId := 1
+	conn, _, client := Setup()
+	defer conn.Close()
+
+	client.SetId(clientId)
+	defer client.Close()
+
+	if err := client.Connect(); err != nil {
+		t.Fatal(err)
+	}
+
+	// update the document
+	err := client.UpdateDocument("", "")
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+}
+
+func TestUpdateDocument_Nonexisting(t *testing.T) {
+	clientId := 1
+	conn, _, client := Setup()
+	defer conn.Close()
+
+	client.SetId(clientId)
+	defer client.Close()
+
+	if err := client.Connect(); err != nil {
+		t.Fatal(err)
+	}
+
+	// update the document
+	err := client.UpdateDocument("hello.py", "print(a)")
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+}
+
 func TestCollect(t *testing.T) {
 	clientId := 1
-	_ = StartServer()
+	conn, _, client := Setup()
+	defer conn.Close()
 
-	client := client.NewClient(context.TODO(), defaultAddr, types.MonitorClientType)
 	client.SetId(clientId)
 	defer client.Close()
 
@@ -277,21 +391,23 @@ func TestCollect(t *testing.T) {
 	}
 
 	// load the document
-	err := client.ResolveDocument("hello.py", "print(a)")
+	err := client.ResolveDocument("Hello.java", `public class Hello {
+	public static void main(String[] args) {
+		String a = null;
+		System.out.println(a);
+	}
+}`)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// collect the error
-	received, processed, err := client.Collect(1, "python3 hello.py", ".", `Traceback (most recent call last):
-	  File "./test_programs/dangling.py", line 1, in <module>
-		print(name)
-			  ^^^^
-	NameError: name 'name' is not defined`)
+	received, processed, err := client.Collect(1, "java Hello", ".", `Exception in thread "main" java.lang.NullPointerException
+	at Hello.main(Hello.java:4)`)
 
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if received != 1 {
 		t.Fatalf("expected 1 error, got %d", received)
@@ -304,9 +420,9 @@ func TestCollect(t *testing.T) {
 
 func TestGenerateParticipantID(t *testing.T) {
 	clientId := 1
-	_ = StartServer()
+	conn, _, client := Setup()
+	defer conn.Close()
 
-	client := client.NewClient(context.TODO(), defaultAddr, types.MonitorClientType)
 	client.SetId(clientId)
 	defer client.Close()
 
@@ -332,9 +448,9 @@ func TestGenerateParticipantID(t *testing.T) {
 
 func TestGenerateParticipantIDReset(t *testing.T) {
 	clientId := 1
-	_ = StartServer()
+	conn, _, client := Setup()
+	defer conn.Close()
 
-	client := client.NewClient(context.TODO(), defaultAddr, types.MonitorClientType)
 	client.SetId(clientId)
 	defer client.Close()
 
@@ -374,9 +490,9 @@ func TestGenerateParticipantIDReset(t *testing.T) {
 
 func TestResetLogger(t *testing.T) {
 	clientId := 1
-	_ = StartServer()
+	conn, _, client := Setup()
+	defer conn.Close()
 
-	client := client.NewClient(context.TODO(), defaultAddr, types.MonitorClientType)
 	client.SetId(clientId)
 	defer client.Close()
 
@@ -398,9 +514,9 @@ func TestResetLogger(t *testing.T) {
 
 func TestCall_NoProcessId(t *testing.T) {
 	clientId := 1
-	_ = StartServer()
+	conn, _, client := Setup()
+	defer conn.Close()
 
-	client := client.NewClient(context.TODO(), defaultAddr, types.MonitorClientType)
 	client.SetId(clientId)
 	defer client.Close()
 
@@ -413,10 +529,52 @@ func TestCall_NoProcessId(t *testing.T) {
 		t.Fatalf("expected client to be connected")
 	}
 
-	// call without process id
-	client.SetId(0)
+	// call without process id, negative process ids are
+	// not included when making a request
+	client.SetId(-3)
 	err := client.Call("test", "test", nil)
 	if err == nil {
 		t.Fatalf("expected error, got nil")
+	}
+
+	if jErr, ok := err.(*jsonrpc2.Error); ok {
+		if jErr.Message != "Process ID not found" {
+			t.Fatalf("expected error message Process ID not found, got %s", jErr.Message)
+		}
+	} else {
+		t.Fatalf("expected jsonrpc2.Error, got %T", err)
+	}
+}
+
+func TestCall_InvalidProcessId(t *testing.T) {
+	clientId := 1
+	conn, _, client := Setup()
+	defer conn.Close()
+
+	client.SetId(clientId)
+	defer client.Close()
+
+	if err := client.Connect(); err != nil {
+		t.Fatal(err)
+	}
+
+	// check if client is connected
+	if !client.IsConnected() {
+		t.Fatalf("expected client to be connected")
+	}
+
+	// call
+	client.SetId(111)
+	err := client.Call("test", "test", nil)
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+
+	if jErr, ok := err.(*jsonrpc2.Error); ok {
+		if jErr.Message != "Process not connected yet." {
+			t.Fatalf("expected error message Process not connected yet., got %s", jErr.Message)
+		}
+	} else {
+		t.Fatalf("expected jsonrpc2.Error, got %T", err)
 	}
 }
