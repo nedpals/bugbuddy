@@ -18,9 +18,9 @@ type ConnectionState int
 
 const (
 	NotConnectedState ConnectionState = 0
+	ShutdownState     ConnectionState = iota
 	ConnectedState    ConnectionState = iota
 	InitializedState  ConnectionState = iota
-	ShutdownState     ConnectionState = iota
 )
 
 const defaultConnectDelay = 750 * time.Millisecond
@@ -58,7 +58,7 @@ func (c *Client) processIdField() jsonrpc2.CallOption {
 }
 
 func (c *Client) IsConnected() bool {
-	return c.rpcConn != nil && c.connState == ConnectedState
+	return c.rpcConn != nil && c.connState >= ConnectedState
 }
 
 func (c *Client) tryReconnect(reason error) error {
