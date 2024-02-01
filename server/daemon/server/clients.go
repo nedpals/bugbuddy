@@ -65,8 +65,8 @@ func (clients connectedClients) Disconnect() {
 	}
 }
 
-func GetClientInfo(s *Server, procId int) (int, types.ClientType) {
-	c, ok := s.connectedClients[procId]
+func (clients connectedClients) Get(procId int) (int, types.ClientType) {
+	c, ok := clients[procId]
 	if ok {
 		return c.id, c.clientType
 	}

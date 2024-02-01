@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -30,6 +31,8 @@ func (sfs *SharedFS) WriteFile(name string, content []byte) error {
 func (sfs *SharedFS) Open(name string) (fs.File, error) {
 	file, err := sfs.memfs.Open(name)
 	if err != nil {
+		fmt.Println(err)
+
 		file, err := os.Open(name)
 		if err != nil {
 			return nil, err

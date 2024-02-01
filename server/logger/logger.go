@@ -23,15 +23,51 @@ type Logger struct {
 	db            *sql.DB
 }
 
+func NewMemoryLogger() (*Logger, error) {
+	return setupLogger(":memory:")
+}
+
+func NewMemoryLoggerPanic() *Logger {
+	logger, err := NewMemoryLogger()
+	if err != nil {
+		panic(err)
+	}
+	return logger
+}
+
 func NewLogger() (*Logger, error) {
+	return NewLoggerFromPath("logs.db")
+}
+
+func NewLoggerPanic() *Logger {
+	logger, err := NewLogger()
+	if err != nil {
+		panic(err)
+	}
+	return logger
+}
+
+func NewLoggerFromPath(path string) (*Logger, error) {
 	// get or initialize directory
 	dirPath, err := helpers.GetOrInitializeDir()
 	if err != nil {
 		return nil, err
 	}
 
+	logsDbPath := filepath.Join(dirPath, path)
+	return setupLogger(logsDbPath)
+}
+
+func NewLoggerFromPathPanic(path string) *Logger {
+	logger, err := NewLoggerFromPath(path)
+	if err != nil {
+		panic(err)
+	}
+	return logger
+}
+
+func setupLogger(logsDbPath string) (*Logger, error) {
 	// open database
-	logsDbPath := filepath.Join(dirPath, "logs.db")
 	db, err := sql.Open("sqlite", logsDbPath)
 	if err != nil {
 		return nil, err
@@ -47,14 +83,6 @@ func NewLogger() (*Logger, error) {
 	return logger, nil
 }
 
-func NewLoggerPanic() *Logger {
-	logger, err := NewLogger()
-	if err != nil {
-		panic(err)
-	}
-	return logger
-}
-
 func (log *Logger) getSetting(key string) (string, error) {
 	var val string
 	err := log.db.QueryRow("SELECT value FROM settings WHERE name = ?", key).Scan(&val)
@@ -63,6 +91,11 @@ func (log *Logger) getSetting(key string) (string, error) {
 
 func (log *Logger) addSetting(key, value string) error {
 	_, err := log.db.Exec("INSERT OR REPLACE INTO settings (name, value) VALUES (?, ?)", key, value)
+	return err
+}
+
+func (log *Logger) deleteSetting(key string) error {
+	_, err := log.db.Exec("DELETE FROM settings WHERE name = ?", key)
 	return err
 }
 
@@ -105,6 +138,14 @@ func (log *Logger) GenerateParticipantId() error {
 
 	rng := rand.New(rand.NewSource(seed))
 	participantId := codename.Generate(rng, 4)
+	if participantId == log.participantId {
+		// reset seed and try again
+		if err := log.deleteSetting("_seed"); err != nil {
+			return err
+		}
+
+		return log.GenerateParticipantId()
+	}
 
 	// add participant id
 	err := log.addSetting("participant_id", participantId)
@@ -192,4 +233,8 @@ func (log *Logger) DeleteFile(filepath string) error {
 		filepath,
 	)
 	return err
+}
+
+func (log *Logger) Close() error {
+	return log.db.Close()
 }

@@ -33,6 +33,22 @@ type Server struct {
 	errors           []resultError
 }
 
+func (d *Server) SetLogger(l *logger.Logger) {
+	if err := d.logger.Close(); err != nil {
+		fmt.Printf("error: %s\n", err.Error())
+	}
+
+	d.logger = l
+}
+
+func (d *Server) Clients() connectedClients {
+	return d.connectedClients
+}
+
+func (d *Server) Engine() *errgoengine.ErrgoEngine {
+	return d.engine
+}
+
 func (d *Server) FS() *helpers.SharedFS {
 	return d.engine.FS.FSs[0].(*helpers.SharedFS)
 }
@@ -152,7 +168,13 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 			return
 		}
 
-		d.FS().WriteFile(payloadStr.Filepath, []byte(payloadStr.Content))
+		if err := d.FS().WriteFile(payloadStr.Filepath, []byte(payloadStr.Content)); err != nil {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Message: err.Error(),
+			})
+			return
+		}
+
 		fmt.Printf("> resolved document: %s (len: %d)\n", payloadStr.Filepath, len(payloadStr.Content))
 	case types.UpdateDocumentMethod:
 		var payloadStr types.DocumentPayload
@@ -281,7 +303,7 @@ func NewServer() *Server {
 		},
 		connectedClients: connectedClients{},
 		errors:           []resultError{},
-		logger:           logger.NewLoggerPanic(),
+		logger:           logger.NewMemoryLoggerPanic(),
 	}
 
 	error_templates.LoadErrorTemplates(&server.engine.ErrorTemplates)
@@ -293,6 +315,8 @@ func Start(server *Server, addr string) error {
 	errChan := make(chan error, 1)
 	disconnChan := make(chan int, 1)
 	exitSignal := make(chan os.Signal, 1)
+
+	server.SetLogger(logger.NewLoggerPanic())
 
 	go func() {
 		fmt.Println("> daemon started on " + addr)
