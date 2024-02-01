@@ -48,6 +48,10 @@ type Client struct {
 	OnSpawnDaemon       func()
 }
 
+func (c *Client) SetId(id int) {
+	c.processId = id
+}
+
 func (c *Client) processIdField() jsonrpc2.CallOption {
 	// TODO: if !handshake { return nil }
 	return jsonrpc2.ExtraField("processId", c.processId)
