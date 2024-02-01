@@ -9,12 +9,14 @@ import (
 	"github.com/nedpals/bugbuddy/server/executor"
 	"github.com/nedpals/bugbuddy/server/helpers"
 	"github.com/nedpals/errgoengine"
+	"github.com/nedpals/errgoengine/error_templates/python"
 )
 
 type TestCollector struct {
-	Engine   *errgoengine.ErrgoEngine
-	ExitCode int
-	Outputs  []string
+	Engine     *errgoengine.ErrgoEngine
+	ExitCode   int
+	ErrorNames []string
+	Outputs    []string
 }
 
 func (tc *TestCollector) Collect(exitCode int, args, workingDir, stderr string) (int, int, error) {
@@ -22,6 +24,7 @@ func (tc *TestCollector) Collect(exitCode int, args, workingDir, stderr string) 
 	result := helpers.AnalyzeError(tc.Engine, workingDir, stderr)
 	r, p, err := result.Stats()
 	if r > 0 {
+		tc.ErrorNames = append(tc.ErrorNames, result.Template.Name)
 		tc.Outputs = append(tc.Outputs, stderr)
 	}
 	return r, p, err
@@ -32,6 +35,7 @@ var cases = []struct {
 	Inputs      [][]string
 	AfterInput  [][]string
 	ErrorCounts []int
+	ErrorNames  []string
 	Outputs     []string
 }{
 	{
@@ -39,6 +43,9 @@ var cases = []struct {
 			{"python3", "./test_programs/simple.py"},
 		},
 		ErrorCounts: []int{1},
+		ErrorNames: []string{
+			python.NameError.Name,
+		},
 		Outputs: []string{
 			`
 Traceback (most recent call last):
@@ -54,6 +61,10 @@ NameError: name 'name' is not defined
 			{"python3", "./test_programs/complex.py"},
 		},
 		ErrorCounts: []int{2},
+		ErrorNames: []string{
+			python.NameError.Name,
+			python.ZeroDivisionError.Name,
+		},
 		Outputs: []string{
 			`
 Traceback (most recent call last):
@@ -75,6 +86,9 @@ ZeroDivisionError: division by zero`,
 			{"python3", "./test_programs/dangling.py"},
 		},
 		ErrorCounts: []int{1},
+		ErrorNames: []string{
+			python.NameError.Name,
+		},
 		Outputs: []string{
 			`
 Ooops I have been included in error
@@ -115,18 +129,28 @@ func TestExecute(t *testing.T) {
 					t.Fatalf("expected %d outputs, got %d", len(c.Outputs), len(collector.Outputs))
 				}
 
+				if len(collector.ErrorNames) != len(c.ErrorNames) {
+					t.Fatalf("expected %d error names, got %d", len(c.ErrorNames), len(collector.ErrorNames))
+				}
+
+				for i, errorNames := range collector.ErrorNames {
+					if errorNames != c.ErrorNames[i] {
+						t.Fatalf("expected %s, got %s", c.ErrorNames[i], errorNames)
+					}
+				}
+
 				for i, output := range collector.Outputs {
 					trimmedOut := strings.TrimSpace(output)
 					trimmedExp := strings.TrimSpace(c.Outputs[i])
 
 					if trimmedOut != trimmedExp {
 						fmt.Println([]byte(trimmedOut), []byte(trimmedExp))
-
 						t.Fatalf("expected %s, got %s", trimmedExp, trimmedOut)
 					}
 				}
 			})
 
+			collector.ErrorNames = []string{}
 			collector.Outputs = []string{}
 		}
 
