@@ -29,6 +29,10 @@ github.com/nedpals/errgoengine v0.0.0-20240201011430-58866985e28e h1:3JGjv3z8DpN
 github.com/nedpals/errgoengine v0.0.0-20240201011430-58866985e28e/go.mod h1:uYC7Mfw/No0v7VerEzJMPt6MdqgS6OYlkWdhan7cnz0=
 github.com/nedpals/errgoengine v0.0.0-20240201012144-02360173e6b6 h1:VmLabYiBdHh2dwaAIKiGrNcNbYSpMHFkj5EfFUx6CEo=
 github.com/nedpals/errgoengine v0.0.0-20240201012144-02360173e6b6/go.mod h1:uYC7Mfw/No0v7VerEzJMPt6MdqgS6OYlkWdhan7cnz0=
+github.com/nedpals/errgoengine v0.0.0-20240201141752-b9c31a8102d1 h1:cIu+sDOP9x9XVZfFrIdnsz6Wle3AQiOl0I0P+jzl5TQ=
+github.com/nedpals/errgoengine v0.0.0-20240201141752-b9c31a8102d1/go.mod h1:uYC7Mfw/No0v7VerEzJMPt6MdqgS6OYlkWdhan7cnz0=
+github.com/nedpals/errgoengine v0.0.0-20240201150312-a3bb8296e8ca h1:KogYXg7vHprVKiJKr1b2c0r+7tGHFzTdgOI9WH/8txE=
+github.com/nedpals/errgoengine v0.0.0-20240201150312-a3bb8296e8ca/go.mod h1:uYC7Mfw/No0v7VerEzJMPt6MdqgS6OYlkWdhan7cnz0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec h1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=
