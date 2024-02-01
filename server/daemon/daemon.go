@@ -32,7 +32,8 @@ func Connect(addr string, clientType types.ClientType, handlerFunc ...rpc.Handle
 }
 
 func Serve(addr string) error {
-	return server.Start(addr)
+	srv := server.NewServer()
+	return server.Start(srv, addr)
 }
 
 func Execute(clientType types.ClientType, execFn func(client *Client) error) error {

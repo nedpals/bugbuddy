@@ -124,7 +124,7 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 			})
 		}
 
-		rec, p, err := d.Collect(ctx, payload, c)
+		rec, p, err := d.collect(ctx, payload, c)
 		if err != nil {
 			fmt.Printf("> collect error: %s\n", err.Error())
 			c.Reply(ctx, r.ID, map[string]any{
@@ -210,7 +210,7 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 	}
 }
 
-func (s *Server) Collect(ctx context.Context, payload types.CollectPayload, c *jsonrpc2.Conn) (recognized int, processed int, err error) {
+func (s *Server) collect(ctx context.Context, payload types.CollectPayload, c *jsonrpc2.Conn) (recognized int, processed int, err error) {
 	result := helpers.AnalyzeError(s.engine, payload.WorkingDir, payload.Error)
 	if result.Err != nil {
 		return result.Stats()
@@ -259,12 +259,15 @@ func (s *Server) notifyErrors(ctx context.Context, procIds_ ...int) {
 	}
 }
 
-func Start(addr string) error {
-	isTerminal := isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd())
-	errChan := make(chan error, 1)
-	disconnChan := make(chan int, 1)
-	exitSignal := make(chan os.Signal, 1)
+func (s *Server) Start(addr string) error {
+	return rpc.StartServer(
+		addr,
+		jsonrpc2.VarintObjectCodec{},
+		s,
+	)
+}
 
+func NewServer() *Server {
 	server := &Server{
 		engine: &errgoengine.ErrgoEngine{
 			ErrorTemplates: errgoengine.ErrorTemplates{},
@@ -282,14 +285,18 @@ func Start(addr string) error {
 	}
 
 	error_templates.LoadErrorTemplates(&server.engine.ErrorTemplates)
+	return server
+}
+
+func Start(server *Server, addr string) error {
+	isTerminal := isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd())
+	errChan := make(chan error, 1)
+	disconnChan := make(chan int, 1)
+	exitSignal := make(chan os.Signal, 1)
 
 	go func() {
 		fmt.Println("> daemon started on " + addr)
-		errChan <- rpc.StartServer(
-			addr,
-			jsonrpc2.VarintObjectCodec{},
-			server,
-		)
+		errChan <- server.Start(addr)
 	}()
 
 	signal.Notify(exitSignal, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
