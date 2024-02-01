@@ -39,7 +39,7 @@ func GetAnalyzerStats(template *eg.CompiledErrorTemplate, exp string, err error)
 	recognized := 0
 	processed := 0
 
-	if template != nil {
+	if template != nil && template != eg.FallbackErrorTemplate {
 		recognized++
 	}
 
@@ -64,7 +64,11 @@ func AnalyzeError(engine *eg.ErrgoEngine, workingDir string, msg string) (res An
 	res.Err = err
 
 	if err != nil {
-		return
+		if err.Error() == "template not found" {
+			t = eg.FallbackErrorTemplate
+		} else {
+			return
+		}
 	}
 
 	e, o := engine.Translate(t, d)
