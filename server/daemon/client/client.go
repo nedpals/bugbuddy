@@ -54,6 +54,9 @@ func (c *Client) SetId(id int) {
 
 func (c *Client) processIdField() jsonrpc2.CallOption {
 	// TODO: if !handshake { return nil }
+	if c.processId <= 0 {
+		return nil
+	}
 	return jsonrpc2.ExtraField("processId", c.processId)
 }
 
