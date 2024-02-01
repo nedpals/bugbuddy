@@ -34,19 +34,6 @@ var cases = []struct {
 	ErrorCounts []int
 	Outputs     []string
 }{
-	// {
-	// 	BeforeInput: [][]string{
-	// 		{"cd", "./test_programs"},
-	// 		{"javac", "Program.java"},
-	// 	},
-	// 	Inputs: [][]string{
-	// 		{"java", "Program"},
-	// 	},
-	// 	AfterInput: [][]string{
-	// 		{"rm", "./test_programs/Program.class"},
-	// 	},
-	// 	Outputs: []int{1},
-	// },
 	{
 		Inputs: [][]string{
 			{"python3", "./test_programs/simple.py"},
