@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/nedpals/bugbuddy/server/daemon"
 	"github.com/nedpals/bugbuddy/server/daemon/types"
+	"github.com/nedpals/bugbuddy/server/executor"
 	"github.com/nedpals/bugbuddy/server/helpers"
 	"github.com/nedpals/bugbuddy/server/lsp_server"
 	"github.com/nedpals/errgoengine"
@@ -35,7 +37,8 @@ var rootCmd = &cobra.Command{
 				return err
 			}
 
-			numErrors, errCode, err := monitorProcess(wd, client, args[0], args[1:]...)
+			fmt.Printf("> listening to %s %s...\n", args[0], strings.Join(args[1:], " "))
+			numErrors, errCode, err := executor.Execute(wd, &executor.ClientCollector{Client: client}, args[0], args[1:]...)
 			if err != nil {
 				return err
 			} else if errCode > 0 {

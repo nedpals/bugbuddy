@@ -12,6 +12,7 @@ import (
 
 	"github.com/mattn/go-isatty"
 	"github.com/nedpals/bugbuddy/server/daemon/types"
+	"github.com/nedpals/bugbuddy/server/helpers"
 	"github.com/nedpals/bugbuddy/server/logger"
 	"github.com/nedpals/bugbuddy/server/rpc"
 	"github.com/nedpals/errgoengine"
@@ -32,8 +33,8 @@ type Server struct {
 	errors           []resultError
 }
 
-func (d *Server) FS() *SharedFS {
-	return d.engine.FS.FSs[0].(*SharedFS)
+func (d *Server) FS() *helpers.SharedFS {
+	return d.engine.FS.FSs[0].(*helpers.SharedFS)
 }
 
 func (d *Server) getProcessId(r *jsonrpc2.Request) int {
@@ -123,14 +124,20 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 			})
 		}
 
-		n, err := d.Collect(ctx, payload, c)
+		rec, p, err := d.Collect(ctx, payload, c)
 		if err != nil {
 			fmt.Printf("> collect error: %s\n", err.Error())
-			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
-				Message: err.Error(),
+			c.Reply(ctx, r.ID, map[string]any{
+				"recognized": rec,
+				"processed":  p,
+				"error":      err.Error(),
 			})
 		} else {
-			c.Reply(ctx, r.ID, map[string]any{"n_errors": n})
+			c.Reply(ctx, r.ID, map[string]any{
+				"recognized": rec,
+				"processed":  p,
+				"error":      "",
+			})
 		}
 	case types.PingMethod:
 		procId := d.getProcessId(r)
@@ -203,30 +210,28 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 	}
 }
 
-func (s *Server) Collect(ctx context.Context, payload types.CollectPayload, c *jsonrpc2.Conn) (int, error) {
+func (s *Server) Collect(ctx context.Context, payload types.CollectPayload, c *jsonrpc2.Conn) (recognized int, processed int, err error) {
+	result := helpers.AnalyzeError(s.engine, payload.WorkingDir, payload.Error)
+	if result.Err != nil {
+		return result.Stats()
+	}
+
 	logPayload := logger.LogParams{
 		ExecutedCommand: payload.Command,
 		ErrorCode:       payload.ErrorCode,
 		ErrorMessage:    payload.Error,
+		FilePath:        result.Data.MainError.Document.Path,
+		GeneratedOutput: result.Output,
 	}
-
-	template, data, err := s.engine.Analyze(payload.WorkingDir, payload.Error)
-	if err != nil {
-		return 0, err
-	}
-
-	logPayload.FilePath = data.MainError.Document.Path
-	exp, output := s.engine.Translate(template, data)
-	logPayload.GeneratedOutput = output
 
 	fmt.Printf("> report new errors to %d clients\n", len(s.connectedClients.ProcessIds(types.LspClientType)))
 	s.errors = append(s.errors, resultError{
 		report: &types.ErrorReport{
-			FullMessage: output,
-			Message:     exp,
-			Template:    template.Name,
-			Language:    template.Language.Name,
-			Location:    data.MainError.Nearest.Location(),
+			FullMessage: result.Output,
+			Message:     result.Exp,
+			Template:    result.Template.Name,
+			Language:    result.Template.Language.Name,
+			Location:    result.Data.MainError.Nearest.Location(),
 		},
 	})
 
@@ -234,11 +239,11 @@ func (s *Server) Collect(ctx context.Context, payload types.CollectPayload, c *j
 	s.notifyErrors(ctx)
 
 	// write files to the logger
-	for _, file := range data.Documents {
+	for _, file := range result.Data.Documents {
 		s.logger.WriteFile(file.Path, []byte(file.Contents))
 	}
 
-	return 1, nil
+	return result.Stats()
 }
 
 func (s *Server) notifyErrors(ctx context.Context, procIds_ ...int) {
@@ -265,7 +270,7 @@ func Start(addr string) error {
 			ErrorTemplates: errgoengine.ErrorTemplates{},
 			FS: &errgoengine.MultiReadFileFS{
 				FSs: []fs.ReadFileFS{
-					NewSharedFS(),
+					helpers.NewSharedFS(),
 				},
 			},
 			SharedStore: errgoengine.NewEmptyStore(),
