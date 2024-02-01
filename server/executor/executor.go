@@ -40,14 +40,6 @@ func (wr *StderrMonitor) Write(p []byte) (n int, err error) {
 	return wr.buf.Write(p)
 }
 
-func (wr *StderrMonitor) Finalize(exitCode int, errr error) (numErrors int, eCode int, err error) {
-	wr.Flush()
-	numErrors = wr.numErrors
-	eCode = exitCode
-	err = errr
-	return
-}
-
 func Execute(workingDir string, c Collector, prog string, args ...string) (int, int, error) {
 	errProcessor := &StderrMonitor{
 		workingDir: workingDir,
@@ -60,10 +52,8 @@ func Execute(workingDir string, c Collector, prog string, args ...string) (int, 
 	progCmd := exec.Command(prog, args...)
 	progCmd.Stdin = os.Stdin
 	progCmd.Stdout = os.Stdout
-	stderrPipe, err := progCmd.StderrPipe()
-	if err != nil {
-		return errProcessor.numErrors, 1, err
-	} else if err := progCmd.Start(); err != nil {
+	stderrPipe, _ := progCmd.StderrPipe()
+	if err := progCmd.Start(); err != nil {
 		return errProcessor.numErrors, 1, err
 	}
 

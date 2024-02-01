@@ -100,6 +100,22 @@ NameError: name 'name' is not defined
 `,
 		},
 	},
+	{
+		Inputs: [][]string{
+			{"python3", "./test_programs/hello.py"},
+		},
+		ErrorCounts: []int{0},
+		ErrorNames:  []string{},
+		Outputs:     []string{},
+	},
+	{
+		Inputs: [][]string{
+			{"python3", "./test_programs/empty.py"},
+		},
+		ErrorCounts: []int{0},
+		ErrorNames:  []string{},
+		Outputs:     []string{},
+	},
 }
 
 func TestExecute(t *testing.T) {
