@@ -2,6 +2,8 @@ package server_test
 
 import (
 	"context"
+	"io"
+	"log"
 	"net"
 	"testing"
 	"time"
@@ -16,6 +18,7 @@ const defaultAddr = ":3434"
 
 func Setup() (*jsonrpc2.Conn, *server.Server, *client.Client) {
 	server := server.NewServer()
+	server.ServerLog = log.New(io.Discard, "", log.LstdFlags)
 	serverConn, clientConn := net.Pipe()
 
 	conn := jsonrpc2.NewConn(

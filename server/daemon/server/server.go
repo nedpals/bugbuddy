@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -27,7 +28,8 @@ type resultError struct {
 }
 
 type Server struct {
-	engine *errgoengine.ErrgoEngine
+	ServerLog *log.Logger
+	engine    *errgoengine.ErrgoEngine
 	// TODO: add storage for context data
 	connectedClients connectedClients
 	logger           *logger.Logger
@@ -112,7 +114,7 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 			return
 		}
 
-		fmt.Printf("> connected: {process_id: %d, type: %d}\n", info.ProcessId, info.ClientType)
+		d.ServerLog.Printf("connected: {process_id: %d, type: %d}\n", info.ProcessId, info.ClientType)
 		d.connectedClients[info.ProcessId] = connectedClient{
 			id:         info.ProcessId,
 			clientType: info.ClientType,
@@ -134,7 +136,7 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 		}
 
 		delete(d.connectedClients, procId)
-		fmt.Printf("> disconnected: {process_id: %d}\n", procId)
+		d.ServerLog.Printf("disconnected: {process_id: %d}\n", procId)
 	case types.CollectMethod:
 		var payload types.CollectPayload
 		if err := json.Unmarshal(*r.Params, &payload); err != nil {
@@ -145,7 +147,7 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 
 		rec, p, err := d.collect(ctx, payload, c)
 		if err != nil {
-			fmt.Printf("> collect error: %s\n", err.Error())
+			d.ServerLog.Printf("collect error: %s\n", err.Error())
 			c.Reply(ctx, r.ID, map[string]any{
 				"recognized": rec,
 				"processed":  p,
@@ -166,7 +168,7 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 			})
 			return
 		}
-		fmt.Printf("> ping from %d\n", procId)
+		d.ServerLog.Printf("ping from %d\n", procId)
 		c.Reply(ctx, r.ID, "pong!")
 	case types.ResolveDocumentMethod:
 		var payloadStr types.DocumentPayload
@@ -191,7 +193,7 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 			return
 		}
 
-		fmt.Printf("> resolved document: %s (len: %d)\n", payloadStr.Filepath, len(payloadStr.Content))
+		d.ServerLog.Printf("resolved document: %s (len: %d)\n", payloadStr.Filepath, len(payloadStr.Content))
 		c.Reply(ctx, r.ID, "ok")
 	case types.UpdateDocumentMethod:
 		var payloadStr types.DocumentPayload
@@ -233,7 +235,7 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 			return
 		}
 
-		fmt.Printf("> updated document: %s (len: %d)\n", payloadStr.Filepath, len(payloadStr.Content))
+		d.ServerLog.Printf("updated document: %s (len: %d)\n", payloadStr.Filepath, len(payloadStr.Content))
 		c.Reply(ctx, r.ID, "ok")
 	case types.DeleteDocumentMethod:
 		var payload types.DocumentIdentifier
@@ -259,7 +261,7 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 			return
 		}
 
-		fmt.Printf("> removed document: %s\n", payload.Filepath)
+		d.ServerLog.Printf("removed document: %s\n", payload.Filepath)
 		c.Reply(ctx, r.ID, "ok")
 	case types.NearestNodeMethod:
 		var payload types.NearestNodePayload
@@ -306,7 +308,7 @@ func (s *Server) collect(ctx context.Context, payload types.CollectPayload, c *j
 		GeneratedOutput: result.Output,
 	}
 
-	fmt.Printf("> report new errors to %d clients\n", len(s.connectedClients.ProcessIds(types.LspClientType)))
+	s.ServerLog.Printf("report new errors to %d clients\n", len(s.connectedClients.ProcessIds(types.LspClientType)))
 	s.errors = append(s.errors, resultError{
 		report: &types.ErrorReport{
 			FullMessage: result.Output,
@@ -351,6 +353,7 @@ func (s *Server) Start(addr string) error {
 
 func NewServer() *Server {
 	server := &Server{
+		ServerLog: log.New(os.Stdout, "server> ", 0),
 		engine: &errgoengine.ErrgoEngine{
 			ErrorTemplates: errgoengine.ErrorTemplates{},
 			FS: &errgoengine.MultiReadFileFS{
@@ -379,7 +382,7 @@ func Start(server *Server, addr string) error {
 	server.SetLogger(logger.NewLoggerPanic())
 
 	go func() {
-		fmt.Println("> daemon started on " + addr)
+		fmt.Println("daemon started on " + addr)
 		errChan <- server.Start(addr)
 	}()
 
