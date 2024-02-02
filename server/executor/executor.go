@@ -59,7 +59,7 @@ func Execute(workingDir string, c Collector, prog string, args ...string) (int, 
 
 	sc := bufio.NewScanner(stderrPipe)
 	for sc.Scan() {
-		if len(sc.Bytes()) == 1 && sc.Bytes()[0] == '\n' {
+		if len(sc.Bytes()) == 0 {
 			errProcessor.Flush()
 			continue
 		}

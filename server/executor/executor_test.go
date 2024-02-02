@@ -83,6 +83,31 @@ ZeroDivisionError: division by zero`,
 	},
 	{
 		Inputs: [][]string{
+			{"python3", "./test_programs/complex2.py"},
+		},
+		ErrorCounts: []int{2},
+		ErrorNames: []string{
+			python.NameError.Name,
+			python.ZeroDivisionError.Name,
+		},
+		Outputs: []string{
+			`
+Traceback (most recent call last):
+  File "./test_programs/complex2.py", line 1, in <module>
+    print(name)
+          ^^^^
+NameError: name 'name' is not defined
+`,
+			`
+Traceback (most recent call last):
+  File "./test_programs/complex2.py", line 6, in <module>
+    print(a / 0)
+          ~~^~~
+ZeroDivisionError: division by zero`,
+		},
+	},
+	{
+		Inputs: [][]string{
 			{"python3", "./test_programs/dangling.py"},
 		},
 		ErrorCounts: []int{1},
