@@ -74,7 +74,6 @@ func (d *Server) getProcessId(r *jsonrpc2.Request) (int, error) {
 func (d *Server) checkProcessConnection(r *jsonrpc2.Request) *jsonrpc2.Error {
 	procId, err := d.getProcessId(r)
 	if err != nil {
-		fmt.Println(err.Error())
 		return &jsonrpc2.Error{
 			Code:    jsonrpc2.CodeInvalidRequest,
 			Message: "Process ID not found",
