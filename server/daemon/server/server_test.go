@@ -451,6 +451,45 @@ func TestCollect(t *testing.T) {
 	}
 }
 
+func TestCollect_ShouldError(t *testing.T) {
+	clientId := 1
+	conn, _, client := Setup()
+	defer conn.Close()
+
+	client.SetId(clientId)
+	defer client.Close()
+
+	if err := client.Connect(); err != nil {
+		t.Fatal(err)
+	}
+
+	// check if client is connected
+	if !client.IsConnected() {
+		t.Fatalf("expected client to be connected")
+	}
+
+	// load the document
+	err := client.ResolveDocument("Hello.txt", `i'm a dummy program`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// collect the error
+	received, processed, err := client.Collect(1, "cat Hello.txt", ".", `im an error!`)
+
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+
+	if received != 0 {
+		t.Fatalf("expected 0 received, got %d", received)
+	}
+
+	if processed != 0 {
+		t.Fatalf("expected 0 processed, got %d", processed)
+	}
+}
+
 func TestGenerateParticipantID(t *testing.T) {
 	clientId := 1
 	conn, _, client := Setup()
