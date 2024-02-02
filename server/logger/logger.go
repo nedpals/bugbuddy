@@ -101,12 +101,11 @@ func (log *Logger) DeleteSetting(key string) error {
 
 func (log *Logger) ParticipantId() string {
 	// get cached value to avoid burdening the database
-	if len(log.participantId) != 0 {
-		return log.participantId
+	if len(log.participantId) == 0 {
+		val, _ := log.GetSetting("participant_id")
+		log.participantId = val
 	}
-
-	val, _ := log.GetSetting("participant_id")
-	return val
+	return log.participantId
 }
 
 func (log *Logger) GenerateParticipantId() error {
@@ -147,19 +146,16 @@ func (log *Logger) GenerateParticipantId() error {
 		return err
 	}
 
-	log.participantId = participantId
+	log.participantId = ""
 	return nil
 }
 
 func (log *Logger) Setup() error {
 	// check if participant id has been set
-	if _, err := log.GetSetting("participant_id"); err != nil {
-		if err == sql.ErrNoRows {
-			return log.GenerateParticipantId()
-		}
-		return err
+	pId := log.ParticipantId()
+	if len(pId) == 0 {
+		return log.GenerateParticipantId()
 	}
-
 	return nil
 }
 
@@ -169,10 +165,7 @@ func (log *Logger) GenerateSeed() (int64, error) {
 		return 0, err
 	}
 
-	if err := log.AddSetting("_seed", strconv.FormatInt(seed, 10)); err != nil {
-		return 0, err
-	}
-
+	_ = log.AddSetting("_seed", strconv.FormatInt(seed, 10))
 	return seed, nil
 }
 

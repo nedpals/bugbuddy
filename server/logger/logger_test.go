@@ -354,7 +354,7 @@ func TestLogger_GenerateParticipantIdExistingSeed(t *testing.T) {
 	defer log.Close()
 
 	// Add a seed
-	err = log.AddSetting("_seed", "seed")
+	err = log.AddSetting("_seed", "12121111")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -387,6 +387,40 @@ func TestLogger_GenerateParticipantIdExistingSeed(t *testing.T) {
 	// Compare the participant IDs
 	if participantId == newParticipantId {
 		t.Errorf("expected participant IDs to be different")
+	}
+}
+
+func TestLogger_GenerateParticipantIdInvalidSeed(t *testing.T) {
+	// Create a temporary database file for testing
+	dbPath := "test.db"
+	defer os.Remove(dbPath)
+
+	// Create a new logger
+	log, err := logger.NewMemoryLogger()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer log.Close()
+
+	// Add a seed
+	err = log.AddSetting("_seed", "seed")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// check if seed exists
+	seed, err := log.GetSetting("_seed")
+	if err != nil {
+		t.Fatal(err)
+	} else if seed != "seed" {
+		t.Fatalf("expected seed to be seed")
+	}
+
+	// Generate a participant ID
+	if err := log.GenerateParticipantId(); err == nil {
+		t.Fatalf("expected error to be thrown")
+	} else if err.Error() != "strconv.ParseInt: parsing \"seed\": invalid syntax" {
+		t.Fatalf("expected error to be strconv.ParseInt: parsing \"seed\": invalid syntax")
 	}
 }
 
@@ -446,6 +480,11 @@ func TestNewLoggerFromPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestNewMemoryLoggerPanic(t *testing.T) {
+	// Create a new memory logger
+	_ = logger.NewMemoryLoggerPanic()
 }
 
 func TestNewLoggerFromPathPanic(t *testing.T) {
