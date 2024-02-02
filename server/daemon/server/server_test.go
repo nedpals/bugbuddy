@@ -66,7 +66,7 @@ func TestHandshake(t *testing.T) {
 
 func TestShutdown(t *testing.T) {
 	clientId := 1
-	conn, _, client := Setup()
+	conn, srv, client := Setup()
 	defer conn.Close()
 
 	client.SetId(clientId)
@@ -90,6 +90,36 @@ func TestShutdown(t *testing.T) {
 	// check if client is still connected
 	if client.IsConnected() {
 		t.Fatalf("expected client to be disconnected")
+	}
+
+	if id, cType := srv.Clients().Get(clientId); id != -1 && cType != types.UnknownClientType {
+		t.Fatalf("expected client to be disconnected from the server")
+	}
+}
+
+func TestServerShutdown(t *testing.T) {
+	clientId := 1
+	conn, srv, client := Setup()
+	defer conn.Close()
+
+	client.SetId(clientId)
+	defer client.Close()
+
+	if err := client.Connect(); err != nil {
+		t.Fatal(err)
+	}
+
+	// check if client is connected
+	if !client.IsConnected() {
+		t.Fatalf("expected client to be connected")
+	}
+
+	// server shutdown
+	srv.Clients().Disconnect()
+
+	// check if the server has no clients
+	if len(srv.Clients()) != 0 {
+		t.Fatalf("expected all clients to be disconnected")
 	}
 }
 
