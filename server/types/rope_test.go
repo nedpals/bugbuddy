@@ -83,6 +83,10 @@ func TestOffsetFromPosition(t *testing.T) {
 		if offset != expected {
 			t.Errorf("Expected offset: %d, Got offset: %d", expected, offset)
 		}
+
+		if r.text[:offset] != "Hello, World!\nThis i" {
+			t.Errorf("Expected text: %s, Got text: %s", "Hello, World!\nThis ", r.text[:offset])
+		}
 	})
 
 	t.Run("Position Exceeds Line Length", func(t *testing.T) {
@@ -91,9 +95,13 @@ func TestOffsetFromPosition(t *testing.T) {
 
 		offset := r.OffsetFromPosition(position)
 
-		expected := 28 // Maximum offset is 28 (end of text)
+		expected := 29 // Maximum offset is 29 (end of text)
 		if offset != expected {
 			t.Errorf("Expected offset: %d, Got offset: %d", expected, offset)
+		}
+
+		if r.text[:offset] != "Hello, World!\nThis is a test." {
+			t.Errorf("Expected text: %s, Got text: %s", "Hello, World!\nThis is a test.", r.text[:offset])
 		}
 	})
 
@@ -106,6 +114,10 @@ func TestOffsetFromPosition(t *testing.T) {
 		expected := 20 // Maximum offset is 29 (end of text)
 		if offset != expected {
 			t.Errorf("Expected offset: %d, Got offset: %d", expected, offset)
+		}
+
+		if r.text[:offset] != "Hello, World!\nThis i" {
+			t.Errorf("Expected text: %s, Got text: %s", "Hello, World!\nThis i", r.text[:offset])
 		}
 	})
 }

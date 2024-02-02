@@ -102,7 +102,7 @@ func (r *Rope) OffsetFromPosition(position lsp.Position) int {
 
 	// Ensure character is within valid range
 	if position.Character >= uint32(len(line)) {
-		position.Character = uint32(len(line) - 1)
+		position.Character = uint32(len(line))
 	}
 
 	// Calculate byte offset
@@ -110,6 +110,7 @@ func (r *Rope) OffsetFromPosition(position lsp.Position) int {
 	for i := 0; i < int(position.Line); i++ {
 		offset += len(lines[i]) + 1 // Add 1 for the newline character
 	}
+
 	offset += int(position.Character)
 
 	return offset
