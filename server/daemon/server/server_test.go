@@ -70,7 +70,6 @@ func TestShutdown(t *testing.T) {
 	defer conn.Close()
 
 	client.SetId(clientId)
-	defer client.Close()
 
 	if err := client.Connect(); err != nil {
 		t.Fatal(err)
@@ -86,6 +85,8 @@ func TestShutdown(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	client.Close()
 
 	// check if client is still connected
 	if client.IsConnected() {
@@ -305,8 +306,12 @@ func TestDeleteDocument_AlreadyDeleted(t *testing.T) {
 
 	// delete the document again
 	err = client.DeleteDocument("hello.py")
-	if err == nil {
-		t.Fatalf("expected error, got nil")
+	if jErr, ok := err.(*jsonrpc2.Error); ok {
+		if jErr.Message != "File does not exist" {
+			t.Fatalf("expected File does not exist error, got %s", jErr.Message)
+		}
+	} else {
+		t.Fatalf("expected jsonrpc2.Error, got %T", err)
 	}
 }
 

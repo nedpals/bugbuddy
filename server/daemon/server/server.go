@@ -250,6 +250,13 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 				Message: "Filepath is empty",
 			})
 			return
+		} else if file, err := d.FS().Open(payload.Filepath); errors.Is(err, fs.ErrNotExist) {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Message: "File does not exist",
+			})
+			return
+		} else {
+			file.Close()
 		}
 
 		// TODO: use dependency tree
