@@ -77,6 +77,9 @@ func Setup() (func(), *LspServer, *rpc.Client) {
 func initialize(lspServer *LspServer, client *rpc.Client) (lsp.InitializeResult, error) {
 	var result lsp.InitializeResult
 	err := client.Call(lsp.MethodInitialize, nil, &result)
+	if err == nil {
+		client.Notify(lsp.MethodInitialized, nil)
+	}
 	return result, err
 }
 
@@ -122,9 +125,38 @@ func TestInitialized(t *testing.T) {
 	close, srv, client := Setup()
 	defer close()
 
-	_, err := initialize(srv, client)
+	var result lsp.InitializeResult
+	err := client.Call(lsp.MethodInitialize, nil, &result)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	exp := lsp.InitializeResult{
+		Capabilities: lsp.ServerCapabilities{
+			TextDocumentSync:   lsp.TextDocumentSyncKindFull,
+			CompletionProvider: nil,
+			HoverProvider:      nil,
+		},
+		ServerInfo: &lsp.ServerInfo{
+			Name:    "BugBuddy",
+			Version: srv.version,
+		},
+	}
+
+	if result.Capabilities.TextDocumentSync == nil {
+		t.Error("Expected TextDocumentSync to be non-nil")
+	}
+
+	if tdSync := lsp.TextDocumentSyncKind(result.Capabilities.TextDocumentSync.(float64)); tdSync != exp.Capabilities.TextDocumentSync {
+		t.Errorf("Expected %v, got %v", exp.Capabilities.TextDocumentSync, tdSync)
+	}
+
+	if exp.ServerInfo.Name != result.ServerInfo.Name {
+		t.Errorf("Expected %v, got %v", exp.ServerInfo.Name, result.ServerInfo.Name)
+	}
+
+	if exp.ServerInfo.Version != result.ServerInfo.Version {
+		t.Errorf("Expected %v, got %v", exp.ServerInfo.Version, result.ServerInfo.Version)
 	}
 
 	err = client.Notify(lsp.MethodInitialized, nil)
