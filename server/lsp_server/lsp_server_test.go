@@ -2,6 +2,8 @@ package lsp_server
 
 import (
 	"context"
+	"io"
+	"log"
 	"net"
 	"strings"
 	"testing"
@@ -18,6 +20,8 @@ import (
 
 func daemonConnSetup() (*jsonrpc2.Conn, net.Conn) {
 	server := server.NewServer()
+	server.ServerLog = log.New(io.Discard, "", log.LstdFlags)
+
 	serverConn, clientConn := net.Pipe()
 
 	conn := jsonrpc2.NewConn(
