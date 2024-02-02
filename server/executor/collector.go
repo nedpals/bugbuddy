@@ -2,6 +2,7 @@ package executor
 
 import (
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/nedpals/bugbuddy/server/daemon/client"
@@ -12,13 +13,14 @@ type Collector interface {
 }
 
 type ClientCollector struct {
+	Logger *log.Logger
 	*client.Client
 }
 
 func (cc *ClientCollector) Collect(exitCode int, args, workingDir, stderr string) (int, int, error) {
 	r, p, err := cc.Client.Collect(exitCode, args, workingDir, stderr)
 	if err != nil {
-		fmt.Printf("[daemon-rpc|error] %s\n", err.Error())
+		cc.Logger.Println(err)
 	}
 
 	if r > 0 {

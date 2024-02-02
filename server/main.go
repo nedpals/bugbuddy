@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strings"
@@ -31,14 +32,23 @@ var rootCmd = &cobra.Command{
 			return fmt.Errorf("you must specify a program to run")
 		}
 
+		var writer io.Writer = io.Discard
+		if isVerbose, _ := cmd.Flags().GetBool("verbose"); isVerbose {
+			writer = os.Stderr
+		}
+
 		err := daemon.Execute(types.MonitorClientType, func(client *daemon.Client) error {
 			wd, err := os.Getwd()
 			if err != nil {
 				return err
 			}
 
-			fmt.Printf("> listening to %s %s...\n", args[0], strings.Join(args[1:], " "))
-			numErrors, errCode, err := executor.Execute(wd, &executor.ClientCollector{Client: client}, args[0], args[1:]...)
+			fmt.Printf("bugbuddy> listening to %s %s...\n", args[0], strings.Join(args[1:], " "))
+			collector := &executor.ClientCollector{
+				Logger: log.New(writer, "bugbuddy>", 0),
+				Client: client,
+			}
+			numErrors, errCode, err := executor.Execute(wd, collector, args[0], args[1:]...)
 			if err != nil {
 				return err
 			} else if errCode > 0 {
@@ -188,6 +198,7 @@ func init() {
 	participantIdCmd.PersistentFlags().Bool("generate", false, "generate a new participant ID")
 	rootCmd.AddCommand(resetCmd)
 	rootCmd.PersistentFlags().IntP("port", "p", daemon.DEFAULT_PORT, "the port to use for the daemon")
+	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "enable verbose mode")
 }
 
 func main() {
