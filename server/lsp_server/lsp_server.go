@@ -20,9 +20,9 @@ import (
 	"go.lsp.dev/uri"
 )
 
-type ViewErrorPayload struct {
-	Id int `json:"id"`
-}
+// type ViewErrorPayload struct {
+// 	Id int `json:"id"`
+// }
 
 type FetchRunCommandPayload struct {
 	LanguageId   string                     `json:"languageId"`
@@ -40,6 +40,13 @@ type LspServer struct {
 }
 
 func decodePayload[T any](ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) *T {
+	if r.Params == nil {
+		c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+			Message: "Params field is null",
+		})
+		return nil
+	}
+
 	var payload *T
 	if err := json.Unmarshal(*r.Params, &payload); err != nil {
 		c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
@@ -155,15 +162,6 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 	// 	if err != nil {
 
 	// 	}
-	case "$/viewError":
-		payload := decodePayload[ViewErrorPayload](ctx, c, r)
-		if payload == nil {
-			return
-		}
-
-		gotErr := s.unpublishedDiagnostics[payload.Id]
-		c.Reply(ctx, r.ID, gotErr)
-		return
 	case "$/fetchRunCommand":
 		payload := decodePayload[FetchRunCommandPayload](ctx, c, r)
 		if payload == nil {
@@ -187,18 +185,7 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 	}
 }
 
-func Start() error {
-	ctx := context.Background()
-	doneChan := make(chan int, 1)
-
-	lspServer := &LspServer{
-		unpublishedDiagnostics: []daemonTypes.ErrorReport{},
-		publishChan:            make(chan int),
-		doneChan:               doneChan,
-		documents:              map[uri.URI]*types.Rope{},
-		version:                "1.0",
-	}
-
+func newDaemonClientForServer(ctx context.Context, lspServer *LspServer) *daemon.Client {
 	daemonClient := daemon.NewClient(ctx, daemon.CurrentPort(), daemonTypes.LspClientType, func(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) {
 		if r.Notif && daemonTypes.MethodIs(r.Method, daemonTypes.ReportMethod) {
 			var report daemonTypes.ErrorReport
@@ -215,8 +202,6 @@ func Start() error {
 		}
 	})
 
-	daemonClient.SpawnOnMaxReconnect = true
-
 	daemonClient.OnReconnect = func(retries int, _ error) bool {
 		lspServer.conn.Notify(ctx, lsp.MethodWindowShowMessage, lsp.ShowMessageParams{
 			Type:    lsp.MessageTypeInfo,
@@ -232,6 +217,21 @@ func Start() error {
 		})
 	}
 
+	return daemonClient
+}
+
+func Start() error {
+	ctx := context.Background()
+	doneChan := make(chan int, 1)
+
+	lspServer := &LspServer{
+		unpublishedDiagnostics: []daemonTypes.ErrorReport{},
+		publishChan:            make(chan int),
+		doneChan:               doneChan,
+		documents:              map[uri.URI]*types.Rope{},
+		version:                "1.0",
+	}
+
 	lspServer.conn = jsonrpc2.NewConn(
 		ctx,
 		jsonrpc2.NewBufferedStream(&rpc.CustomStream{
@@ -240,6 +240,9 @@ func Start() error {
 		}, jsonrpc2.VSCodeObjectCodec{}),
 		jsonrpc2.AsyncHandler(lspServer),
 	)
+
+	daemonClient := newDaemonClientForServer(ctx, lspServer)
+	daemonClient.SpawnOnMaxReconnect = true
 
 	lspServer.daemonClient = daemonClient
 	exitSignal := make(chan os.Signal, 1)
