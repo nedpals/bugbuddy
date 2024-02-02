@@ -406,8 +406,12 @@ func TestUpdateDocument_Nonexisting(t *testing.T) {
 
 	// update the document
 	err := client.UpdateDocument("hello.py", "print(a)")
-	if err == nil {
-		t.Fatalf("expected error, got nil")
+	if jErr, ok := err.(*jsonrpc2.Error); ok {
+		if jErr.Message != "File does not exist" {
+			t.Fatalf("expected File does not exist error, got %s", jErr.Message)
+		}
+	} else {
+		t.Fatalf("expected jsonrpc2.Error, got %T", err)
 	}
 }
 
