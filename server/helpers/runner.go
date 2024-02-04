@@ -59,55 +59,33 @@ var defaultRunCommands = map[string]RunCommand{
 	"zig":          {Universal: "zig run ${file}"},
 }
 
-func initializeRunnerJson() error {
+func GetRunnerJson() (map[string]RunCommand, error) {
+	// where the commands stored in runner.json will be stored
+	customRunnerCommands := map[string]RunCommand{}
+
 	dirPath, err := GetOrInitializeDir()
 	if err != nil {
-		return err
+		return customRunnerCommands, err
 	}
 
 	// write runner.json
 	runnerJsonPath := filepath.Join(dirPath, "runner.json")
-	if _, err := os.Stat(runnerJsonPath); os.IsNotExist(err) {
-		runnerJsonFile, err := os.Create(runnerJsonPath)
+	if contents, err := os.ReadFile(runnerJsonPath); err == nil {
+		customRunnerCommandsStr := map[string]string{}
+
+		// parse to json
+		err = json.Unmarshal(contents, &customRunnerCommandsStr)
 		if err != nil {
-			return err
+			return customRunnerCommands, err
 		}
-		defer runnerJsonFile.Close()
 
-		enc := json.NewEncoder(runnerJsonFile)
-		enc.SetIndent("", "    ")
-		if err := enc.Encode(defaultRunCommands); err != nil {
-			return err
+		// convert to RunCommand
+		for k, v := range customRunnerCommandsStr {
+			customRunnerCommands[k] = RunCommand{Universal: v}
 		}
 	}
 
-	return nil
-}
-
-func GetOrInitializeRunnerJson() (map[string]RunCommand, error) {
-	dirPath, err := GetOrInitializeDir()
-	if err != nil {
-		return nil, err
-	}
-
-	// read runner.json
-	runnerJsonPath := filepath.Join(dirPath, "runner.json")
-	runnerJsonFile, err := os.Open(runnerJsonPath)
-	if err != nil {
-		if err := initializeRunnerJson(); err != nil {
-			return nil, err
-		}
-
-		// go back to attempt to open runner.json again
-		return GetOrInitializeRunnerJson()
-	}
-
-	var runnerJson map[string]RunCommand
-	if err := json.NewDecoder(runnerJsonFile).Decode(&runnerJson); err != nil {
-		return nil, err
-	}
-
-	return runnerJson, nil
+	return customRunnerCommands, err
 }
 
 func GetRunCommand(languageId string, filePath string) (string, error) {
@@ -117,14 +95,17 @@ func GetRunCommand(languageId string, filePath string) (string, error) {
 		return "", err
 	}
 
-	runCommands, err := GetOrInitializeRunnerJson()
+	customRunCommands, err := GetRunnerJson()
 	if err != nil {
 		return "", err
 	}
 
-	runCommandList, ok := runCommands[languageId]
+	runCommandList, ok := customRunCommands[languageId]
 	if !ok {
-		return "", fmt.Errorf("no run command for language id %s", languageId)
+		runCommandList, ok = defaultRunCommands[languageId]
+		if !ok {
+			return "", fmt.Errorf("no run command for language id %s", languageId)
+		}
 	}
 
 	runCommand := runCommandList.Universal
