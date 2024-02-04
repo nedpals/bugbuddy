@@ -19,7 +19,7 @@ var defaultRunCommands = map[string]RunCommand{
 	"python":       {Universal: "python3 ${file}"},
 	"c":            {Universal: "gcc ${file} -o ${fileNoExt} && ./${fileNoExt}"},
 	"cpp":          {Universal: "g++ ${file} -o ${fileNoExt} && ./${fileNoExt}"},
-	"java":         {Universal: "javac ${file} && java ${fileNoExt}"},
+	"java":         {Universal: "javac ${filename} && java ${filenameNoExt}"},
 	"rust":         {Universal: "rustc ${file} && ./${fileNoExt}"},
 	"go":           {Universal: "go run ${file}"},
 	"js":           {Universal: "node ${file}"},
@@ -125,6 +125,7 @@ func GetRunCommand(languageId string, filePath string) (string, error) {
 	r := strings.NewReplacer(
 		"${file}", filePath,
 		"${filename}", filepath.Base(filePath),
+		"${filenameNoExt}", strings.TrimSuffix(filepath.Base(filePath), filepath.Ext(filePath)),
 		"${dir}", filepath.Dir(filePath),
 		"${fileNoExt}", strings.TrimSuffix(filePath, filepath.Ext(filePath)),
 	)
