@@ -3,16 +3,21 @@ package executor
 import (
 	"bufio"
 	"bytes"
+	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
 )
+
+var DefaultFprintWr io.Writer = os.Stderr
 
 type StderrMonitor struct {
 	numErrors  int
 	workingDir string
 	exitCode   int
 	args       []string
+	fPrintWr   io.Writer
 	collector  Collector
 	buf        bytes.Buffer
 }
@@ -37,7 +42,12 @@ func (wr *StderrMonitor) Write(p []byte) (n int, err error) {
 	if wr.buf.Len() != 0 {
 		wr.buf.WriteByte('\n')
 	}
-	return wr.buf.Write(p)
+	n, err = wr.buf.Write(p)
+	if err != nil {
+		return
+	}
+	fmt.Fprint(wr.fPrintWr, wr.buf.String())
+	return
 }
 
 func Execute(workingDir string, c Collector, prog string, args ...string) (int, int, error) {
@@ -46,6 +56,7 @@ func Execute(workingDir string, c Collector, prog string, args ...string) (int, 
 		collector:  c,
 		args:       append([]string{prog}, args...),
 		exitCode:   1,
+		fPrintWr:   DefaultFprintWr,
 	}
 	defer errProcessor.Flush()
 

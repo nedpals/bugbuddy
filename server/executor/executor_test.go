@@ -2,6 +2,7 @@ package executor_test
 
 import (
 	"fmt"
+	"io"
 	"os/exec"
 	"strings"
 	"testing"
@@ -146,6 +147,8 @@ NameError: name 'name' is not defined
 func TestExecute(t *testing.T) {
 	engine := helpers.DefaultEngine()
 	collector := &TestCollector{Engine: engine}
+
+	executor.DefaultFprintWr = io.Discard
 
 	for _, c := range cases {
 		for _, inputs := range c.BeforeInput {

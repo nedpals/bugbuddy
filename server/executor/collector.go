@@ -1,9 +1,7 @@
 package executor
 
 import (
-	"fmt"
 	"log"
-	"os"
 
 	"github.com/nedpals/bugbuddy/server/daemon/client"
 )
@@ -21,10 +19,6 @@ func (cc *ClientCollector) Collect(exitCode int, args, workingDir, stderr string
 	r, p, err := cc.Client.Collect(exitCode, args, workingDir, stderr)
 	if err != nil {
 		cc.Logger.Println(err)
-	}
-
-	if r > 0 {
-		fmt.Fprintln(os.Stderr, stderr)
 	}
 	return r, p, err
 }
