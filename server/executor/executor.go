@@ -50,7 +50,58 @@ func (wr *StderrMonitor) Write(p []byte) (n int, err error) {
 	return
 }
 
+type executionLogicalOp int
+
+const (
+	ExecutionLogicalOpNone executionLogicalOp = 0
+	ExecutionLogicalOpOr   executionLogicalOp = iota
+	ExecutionLogicalOpAnd  executionLogicalOp = iota
+)
+
+var logicalOps = map[string]executionLogicalOp{
+	"||": ExecutionLogicalOpOr,
+	"&&": ExecutionLogicalOpAnd,
+}
+
+func hasLogicalOpInCommand(cmd string) string {
+	for op := range logicalOps {
+		if strings.Contains(cmd, op) {
+			return op
+		}
+	}
+	return ""
+}
+
 func Execute(workingDir string, c Collector, prog string, args ...string) (int, int, error) {
+	sep := hasLogicalOpInCommand(prog)
+	if sep != "" {
+		commands := strings.Split(prog, sep)
+		var err error
+		var numErrors int
+		var exitCode int
+		for i, cmd := range commands {
+			if i > 0 {
+				switch logicalOps[sep] {
+				case ExecutionLogicalOpOr:
+					if exitCode == 0 {
+						continue
+					}
+				case ExecutionLogicalOpAnd:
+					if exitCode != 0 {
+						continue
+					}
+				}
+			}
+
+			argv := strings.Split(strings.TrimSpace(cmd), " ")
+			numErrors, exitCode, err = Execute(workingDir, c, argv[0], argv[1:]...)
+			if err != nil {
+				return numErrors, exitCode, err
+			}
+		}
+		return numErrors, exitCode, nil
+	}
+
 	errProcessor := &StderrMonitor{
 		workingDir: workingDir,
 		collector:  c,

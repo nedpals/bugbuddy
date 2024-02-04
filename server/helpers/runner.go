@@ -131,5 +131,10 @@ func GetRunCommand(languageId string, filePath string) (string, error) {
 	)
 
 	runCommand = r.Replace(runCommand)
+	if strings.Count(runCommand, "||") > 0 || strings.Count(runCommand, "&&") > 0 {
+		// wrap the command in double quotes if it contains logical operators
+		runCommand = fmt.Sprintf("\"%s\"", runCommand)
+	}
+
 	return fmt.Sprintf("%s -- %s", executablePath, runCommand), nil
 }
