@@ -42,10 +42,15 @@ type Client struct {
 	processId           int
 	connState           ConnectionState
 	clientType          types.ClientType
+	supportedFileExts   []string
 	HandleFunc          rpc.HandlerFunc
 	SpawnOnMaxReconnect bool
 	OnReconnect         func(int, error) bool
 	OnSpawnDaemon       func()
+}
+
+func (c *Client) SupportedFileExts() []string {
+	return c.supportedFileExts
 }
 
 func (c *Client) SetId(id int) {
@@ -142,7 +147,15 @@ func (c *Client) Connect() error {
 		jsonrpc2.AsyncHandler(c),
 	)
 
-	return c.Handshake()
+	info, err := c.Handshake()
+	if err != nil {
+		return err
+	}
+
+	// add supported file extensions
+	c.supportedFileExts = info.SupportedFileExtensions
+
+	return nil
 }
 
 func (c *Client) Close() error {
@@ -253,21 +266,25 @@ func (c *Client) DeleteDocument(filepath string) error {
 	}, nil)
 }
 
-func (c *Client) Handshake() error {
-	var result int
+func (c *Client) Handshake() (*types.ServerInfo, error) {
+	var result *types.ServerInfo
 	err := c.Call(types.HandshakeMethod, &types.ClientInfo{
 		ProcessId:  c.processId,
 		ClientType: c.clientType,
 	}, &result)
 
 	if err != nil {
-		return err
-	} else if result != 1 {
-		return fmt.Errorf("failed to handshake with daemon server")
+		return nil, err
+	} else if result == nil || !result.Success {
+		return nil, fmt.Errorf("failed to handshake with daemon server")
 	}
 
 	c.connState = InitializedState
-	return c.Call(types.PingMethod, nil, nil)
+	if err := c.Call(types.PingMethod, nil, nil); err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }
 
 func (c *Client) Shutdown() error {

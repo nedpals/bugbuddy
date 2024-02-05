@@ -41,9 +41,9 @@ func Setup() (func(), *LspServer, *rpc.Client) {
 	serverConn, clientConn := net.Pipe()
 	// Create a mock LspServer
 	lspServer := &LspServer{
-		unpublishedDiagnostics: []daemonTypes.ErrorReport{},
-		publishChan:            make(chan int, 0),
-		doneChan:               make(chan int, 0),
+		unpublishedDiagnostics: map[uri.URI][]daemonTypes.ErrorReport{},
+		publishChan:            make(chan int),
+		doneChan:               make(chan int),
 		documents:              map[uri.URI]*types.Rope{},
 		version:                "1.0",
 	}
@@ -220,8 +220,8 @@ func TestMethodTextDocumentDidOpen(t *testing.T) {
 
 	err = client.Notify(lsp.MethodTextDocumentDidOpen, lsp.DidOpenTextDocumentParams{
 		TextDocument: lsp.TextDocumentItem{
-			URI:  "file:///test.go",
-			Text: "package main",
+			URI:  "file:///test.py",
+			Text: "print('package main')",
 		},
 	})
 	if err != nil {
@@ -233,8 +233,32 @@ func TestMethodTextDocumentDidOpen(t *testing.T) {
 
 	<-srv.publishChan
 
-	if _, ok := srv.documents[uri.URI("file:///test.go")]; !ok {
+	if _, ok := srv.documents[uri.URI("file:///test.py")]; !ok {
 		t.Error("Expected document to be opened")
+	}
+}
+
+func TestMethodTextDocumentDidOpen_UnsupportedFile(t *testing.T) {
+	close, srv, client := Setup()
+	defer close()
+
+	_, err := initialize(srv, client)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = client.Notify(lsp.MethodTextDocumentDidOpen, lsp.DidOpenTextDocumentParams{
+		TextDocument: lsp.TextDocumentItem{
+			URI:  "file:///test.go",
+			Text: "package main",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, ok := srv.documents[uri.URI("file:///test.py")]; ok {
+		t.Error("Expected document to not be opened")
 	}
 }
 
@@ -262,8 +286,8 @@ func TestMethodTextDocumentDidChange(t *testing.T) {
 	// open document first
 	err = client.Notify(lsp.MethodTextDocumentDidOpen, lsp.DidOpenTextDocumentParams{
 		TextDocument: lsp.TextDocumentItem{
-			URI:  "file:///test.go",
-			Text: "package main",
+			URI:  "file:///test.py",
+			Text: "print('package main')",
 		},
 	})
 	if err != nil {
@@ -275,7 +299,7 @@ func TestMethodTextDocumentDidChange(t *testing.T) {
 
 	<-srv.publishChan
 
-	if _, ok := srv.documents[uri.URI("file:///test.go")]; !ok {
+	if _, ok := srv.documents[uri.URI("file:///test.py")]; !ok {
 		t.Error("Expected document to be opened")
 	}
 
@@ -283,7 +307,7 @@ func TestMethodTextDocumentDidChange(t *testing.T) {
 	err = client.Notify(lsp.MethodTextDocumentDidChange, lsp.DidChangeTextDocumentParams{
 		TextDocument: lsp.VersionedTextDocumentIdentifier{
 			TextDocumentIdentifier: lsp.TextDocumentIdentifier{
-				URI: uri.URI("file:///test.go"),
+				URI: uri.URI("file:///test.py"),
 			},
 			Version: 1,
 		},
@@ -297,13 +321,13 @@ func TestMethodTextDocumentDidChange(t *testing.T) {
 					},
 					End: lsp.Position{
 						Line:      0,
-						Character: 12,
+						Character: 22,
 					},
 				},
-				RangeLength: 12,
+				RangeLength: 22,
 			},
 			{
-				Text: "package main2",
+				Text: "print('package main2')",
 				Range: lsp.Range{
 					Start: lsp.Position{
 						Line:      0,
@@ -325,12 +349,12 @@ func TestMethodTextDocumentDidChange(t *testing.T) {
 	// Wait for the document to be changed
 	time.Sleep(100 * time.Millisecond)
 
-	if _, ok := srv.documents[uri.URI("file:///test.go")]; !ok {
+	if _, ok := srv.documents[uri.URI("file:///test.py")]; !ok {
 		t.Error("Expected document to be changed")
 	}
 
-	if srv.documents[uri.URI("file:///test.go")].ToString() != "package main2" {
-		t.Errorf("Expected %v, got %v", "package main", srv.documents[uri.URI("file:///test.go")].ToString())
+	if srv.documents[uri.URI("file:///test.py")].ToString() != "print('package main2')" {
+		t.Errorf("Expected %v, got %v", "print('package main')", srv.documents[uri.URI("file:///test.py")].ToString())
 	}
 }
 
@@ -358,8 +382,8 @@ func TestMethodTextDocumentDidClose(t *testing.T) {
 	// open document first
 	err = client.Notify(lsp.MethodTextDocumentDidOpen, lsp.DidOpenTextDocumentParams{
 		TextDocument: lsp.TextDocumentItem{
-			URI:  "file:///test.go",
-			Text: "package main",
+			URI:  "file:///test.py",
+			Text: "print('package main')",
 		},
 	})
 	if err != nil {
@@ -371,14 +395,14 @@ func TestMethodTextDocumentDidClose(t *testing.T) {
 
 	<-srv.publishChan
 
-	if _, ok := srv.documents[uri.URI("file:///test.go")]; !ok {
+	if _, ok := srv.documents[uri.URI("file:///test.py")]; !ok {
 		t.Error("Expected document to be opened")
 	}
 
 	// close document
 	err = client.Notify(lsp.MethodTextDocumentDidClose, lsp.DidCloseTextDocumentParams{
 		TextDocument: lsp.TextDocumentIdentifier{
-			URI: uri.URI("file:///test.go"),
+			URI: uri.URI("file:///test.py"),
 		},
 	})
 	if err != nil {
@@ -388,7 +412,7 @@ func TestMethodTextDocumentDidClose(t *testing.T) {
 	// Wait for the document to be closed
 	time.Sleep(100 * time.Millisecond)
 
-	if _, ok := srv.documents[uri.URI("file:///test.go")]; ok {
+	if _, ok := srv.documents[uri.URI("file:///test.py")]; ok {
 		t.Error("Expected document to be closed")
 	}
 }
@@ -416,17 +440,17 @@ func TestFetchRunCommand(t *testing.T) {
 
 	var result map[string]string
 	err = client.Call("$/fetchRunCommand", FetchRunCommandPayload{
-		LanguageId: "go",
+		LanguageId: "python",
 		TextDocument: lsp.TextDocumentIdentifier{
-			URI: "file:///test.go",
+			URI: "file:///test.py",
 		},
 	}, &result)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !strings.HasSuffix(result["command"], " -- go run /test.go") {
-		t.Errorf("Expected %v, got %v", "go run test.go", result["command"])
+	if !strings.HasSuffix(result["command"], " -- python3 test.py") {
+		t.Errorf("Expected %v, got %v", "python3 test.py", result["command"])
 	}
 }
 
@@ -467,7 +491,7 @@ func TestFetchRunCommand_InvalidLanguageId(t *testing.T) {
 	err = client.Call("$/fetchRunCommand", FetchRunCommandPayload{
 		LanguageId: "invalid",
 		TextDocument: lsp.TextDocumentIdentifier{
-			URI: "file:///test.go",
+			URI: "file:///test.py",
 		},
 	}, &result)
 	if jErr, ok := err.(*jsonrpc2.Error); ok {

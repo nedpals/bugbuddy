@@ -48,3 +48,10 @@ type NearestNodePayload struct {
 	Line   int
 	Column int
 }
+
+type ServerInfo struct {
+	Success                 bool     `json:"success"`
+	Version                 string   `json:"version"`
+	ProcessID               int      `json:"process_id"`
+	SupportedFileExtensions []string `json:"supported_file_extensions"`
+}

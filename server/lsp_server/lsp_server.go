@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"github.com/nedpals/bugbuddy/server/daemon"
@@ -33,7 +34,7 @@ type LspServer struct {
 	conn                   *jsonrpc2.Conn
 	daemonClient           *daemonClient.Client
 	version                string
-	unpublishedDiagnostics []daemonTypes.ErrorReport
+	unpublishedDiagnostics map[uri.URI][]daemonTypes.ErrorReport
 	publishChan            chan int
 	doneChan               chan int
 	documents              map[uri.URI]*types.Rope
@@ -93,6 +94,21 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 	case lsp.MethodTextDocumentDidOpen:
 		payload := decodePayload[lsp.DidOpenTextDocumentParams](ctx, c, r)
 		if payload == nil {
+			return
+		}
+
+		// check if file format is excluded
+		notFound := true
+		ext := filepath.Ext(payload.TextDocument.URI.Filename())
+		for _, format := range s.daemonClient.SupportedFileExts() {
+			if ext == format {
+				notFound = false
+				break
+			}
+		}
+
+		if notFound {
+			// ignore the file
 			return
 		}
 
@@ -197,7 +213,16 @@ func newDaemonClientForServer(ctx context.Context, lspServer *LspServer) *daemon
 				return
 			}
 
-			lspServer.unpublishedDiagnostics = append(lspServer.unpublishedDiagnostics, report)
+			uri := uri.File(report.Location.DocumentPath)
+			if report.ErrorCode < 1 {
+				// clear the diagnostics
+				lspServer.unpublishedDiagnostics[uri] = []daemonTypes.ErrorReport{}
+			} else {
+				lspServer.unpublishedDiagnostics[uri] = []daemonTypes.ErrorReport{
+					report,
+				}
+			}
+
 			lspServer.publishChan <- len(lspServer.unpublishedDiagnostics)
 		}
 	})
@@ -225,7 +250,7 @@ func Start() error {
 	doneChan := make(chan int, 1)
 
 	lspServer := &LspServer{
-		unpublishedDiagnostics: []daemonTypes.ErrorReport{},
+		unpublishedDiagnostics: map[uri.URI][]daemonTypes.ErrorReport{},
 		publishChan:            make(chan int),
 		doneChan:               doneChan,
 		documents:              map[uri.URI]*types.Rope{},
@@ -258,8 +283,14 @@ func Start() error {
 		case <-lspServer.publishChan:
 			diagnosticsMap := map[uri.URI][]lsp.Diagnostic{}
 
-			for _, errReport := range lspServer.unpublishedDiagnostics {
-				fileUri := uri.File(errReport.Location.DocumentPath)
+			for fileUri, errReports := range lspServer.unpublishedDiagnostics {
+				if len(errReports) == 0 {
+					// if there are no diagnostics, clear the diagnostics for this file
+					diagnosticsMap[fileUri] = []lsp.Diagnostic{}
+					continue
+				}
+
+				errReport := errReports[0]
 				tempExpFilepath := getTempFilePath(fileUri.Filename())
 				openErrorRawUri := fmt.Sprintf("vscode://nedpals.bugbuddy/openError?file=%s", url.QueryEscape(tempExpFilepath))
 				openErrorUri := uri.URI(openErrorRawUri)
@@ -289,11 +320,12 @@ func Start() error {
 					file.WriteString(errReport.FullMessage)
 					file.Close()
 				}
+
+				// clear the diagnostics for this file
+				lspServer.unpublishedDiagnostics[fileUri] = []daemonTypes.ErrorReport{}
 			}
 
-			// delete all unpublished diagnostics
-			lspServer.unpublishedDiagnostics = []daemonTypes.ErrorReport{}
-
+			// send the diagnostics to the client
 			for uri, diagnostics := range diagnosticsMap {
 				lspServer.conn.Notify(ctx, lsp.MethodTextDocumentPublishDiagnostics, lsp.PublishDiagnosticsParams{
 					URI: uri,
