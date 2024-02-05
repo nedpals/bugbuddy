@@ -306,14 +306,19 @@ func (s *Server) collect(ctx context.Context, payload types.CollectPayload, c *j
 		GeneratedOutput: result.Output,
 	}
 
+	received, processed, err := result.Stats()
 	s.ServerLog.Printf("report new errors to %d clients\n", len(s.connectedClients.ProcessIds(types.LspClientType)))
 	s.errors = append(s.errors, resultError{
 		report: &types.ErrorReport{
-			FullMessage: result.Output,
-			Message:     result.Exp,
-			Template:    result.Template.Name,
-			Language:    result.Template.Language.Name,
-			Location:    result.Data.MainError.Nearest.Location(),
+			FullMessage:   result.Output,
+			Message:       result.Exp,
+			Template:      result.Template.Name,
+			Language:      result.Template.Language.Name,
+			Location:      result.Data.MainError.Nearest.Location(),
+			ErrorCode:     payload.ErrorCode,
+			Received:      received,
+			Processed:     processed,
+			AnalyzerError: err.Error(),
 		},
 	})
 
