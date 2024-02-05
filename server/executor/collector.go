@@ -16,9 +16,12 @@ type ClientCollector struct {
 }
 
 func (cc *ClientCollector) Collect(exitCode int, args, workingDir, stderr string) (int, int, error) {
-	r, p, err := cc.Client.Collect(exitCode, args, workingDir, stderr)
+	resp, err := cc.Client.Collect(exitCode, args, workingDir, stderr)
 	if err != nil {
 		cc.Logger.Println(err)
 	}
-	return r, p, err
+	if resp == nil {
+		return 0, 0, nil
+	}
+	return resp.Recognized, resp.Processed, err
 }

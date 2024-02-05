@@ -11,6 +11,8 @@ import (
 	"github.com/nedpals/bugbuddy/server/daemon/client"
 	"github.com/nedpals/bugbuddy/server/daemon/server"
 	"github.com/nedpals/bugbuddy/server/daemon/types"
+	"github.com/nedpals/errgoengine"
+	"github.com/nedpals/errgoengine/languages"
 	"github.com/sourcegraph/jsonrpc2"
 )
 
@@ -18,6 +20,8 @@ const defaultAddr = ":3434"
 
 func Setup() (*jsonrpc2.Conn, *server.Server, *client.Client) {
 	server := server.NewServer()
+	languages.SupportedLanguages = append(languages.SupportedLanguages, errgoengine.TestLanguage)
+
 	server.ServerLog = log.New(io.Discard, "", log.LstdFlags)
 	serverConn, clientConn := net.Pipe()
 
@@ -444,19 +448,19 @@ func TestCollect(t *testing.T) {
 	}
 
 	// collect the error
-	received, processed, err := client.Collect(1, "java Hello", ".", `Exception in thread "main" java.lang.NullPointerException
+	resp, err := client.Collect(1, "java Hello", ".", `Exception in thread "main" java.lang.NullPointerException
 	at Hello.main(Hello.java:4)`)
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if received != 1 {
-		t.Fatalf("expected 1 error, got %d", received)
+	if resp.Recognized != 1 {
+		t.Fatalf("expected 1 error, got %d", resp.Recognized)
 	}
 
-	if processed != 1 {
-		t.Fatalf("expected 1 processed, got %d", processed)
+	if resp.Processed != 1 {
+		t.Fatalf("expected 1 processed, got %d", resp.Processed)
 	}
 }
 
@@ -478,24 +482,23 @@ func TestCollect_ShouldError(t *testing.T) {
 	}
 
 	// load the document
-	err := client.ResolveDocument("Hello.txt", `i'm a dummy program`)
+	err := client.ResolveDocument("Hello.test", `i'm a dummy program`)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// collect the error
-	received, processed, err := client.Collect(1, "cat Hello.txt", ".", `im an error!`)
-
+	resp, err := client.Collect(1, "cat Hello.test", ".", `im an error!`)
 	if err == nil {
 		t.Fatalf("expected error, got nil")
 	}
 
-	if received != 0 {
-		t.Fatalf("expected 0 received, got %d", received)
+	if resp.Recognized != 0 {
+		t.Fatalf("expected 0 received, got %d", resp.Recognized)
 	}
 
-	if processed != 0 {
-		t.Fatalf("expected 0 processed, got %d", processed)
+	if resp.Processed != 0 {
+		t.Fatalf("expected 0 processed, got %d", resp.Processed)
 	}
 }
 

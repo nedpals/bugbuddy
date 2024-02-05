@@ -55,3 +55,9 @@ type ServerInfo struct {
 	ProcessID               int      `json:"process_id"`
 	SupportedFileExtensions []string `json:"supported_file_extensions"`
 }
+
+type CollectResponse struct {
+	Recognized int
+	Processed  int
+	Error      string
+}

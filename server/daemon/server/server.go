@@ -19,6 +19,7 @@ import (
 	"github.com/nedpals/bugbuddy/server/rpc"
 	"github.com/nedpals/errgoengine"
 	"github.com/nedpals/errgoengine/error_templates"
+	"github.com/nedpals/errgoengine/languages"
 	"github.com/sourcegraph/jsonrpc2"
 )
 
@@ -119,11 +120,23 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 			clientType: info.ClientType,
 			conn:       c,
 		}
-		c.Reply(ctx, r.ID, 1)
+
+		engineSupportedExtensions := []string{}
+		for _, lang := range languages.SupportedLanguages {
+			engineSupportedExtensions = append(engineSupportedExtensions, lang.FilePatterns...)
+		}
+
+		// introduce the server to the client
+		c.Reply(ctx, r.ID, &types.ServerInfo{
+			Success:                 true,
+			Version:                 "0.1.0",
+			ProcessID:               info.ProcessId,
+			SupportedFileExtensions: engineSupportedExtensions,
+		})
 
 		// Send the existing errors to a newly connected client
 		if info.ClientType == types.LspClientType {
-			d.notifyErrors(ctx, info.ProcessId)
+			d.notifyErrors(ctx, d.errors, info.ProcessId)
 		}
 	case types.ShutdownMethod:
 		procId, err := d.getProcessId(r)
@@ -147,16 +160,16 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 		rec, p, err := d.collect(ctx, payload, c)
 		if err != nil {
 			d.ServerLog.Printf("collect error: %s\n", err.Error())
-			c.Reply(ctx, r.ID, map[string]any{
-				"recognized": rec,
-				"processed":  p,
-				"error":      err.Error(),
+			c.Reply(ctx, r.ID, types.CollectResponse{
+				Recognized: rec,
+				Processed:  p,
+				Error:      err.Error(),
 			})
 		} else {
-			c.Reply(ctx, r.ID, map[string]any{
-				"recognized": rec,
-				"processed":  p,
-				"error":      "",
+			c.Reply(ctx, r.ID, types.CollectResponse{
+				Recognized: rec,
+				Processed:  p,
+				Error:      "",
 			})
 		}
 	case types.PingMethod:
@@ -294,8 +307,25 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 
 func (s *Server) collect(ctx context.Context, payload types.CollectPayload, c *jsonrpc2.Conn) (recognized int, processed int, err error) {
 	result := helpers.AnalyzeError(s.engine, payload.WorkingDir, payload.Error)
-	if result.Err != nil {
-		return result.Stats()
+	r, p, err := result.Stats()
+	s.ServerLog.Printf("collect: %d recognized, %d processed\n", r, p)
+	if len(payload.Error) == 0 && payload.ErrorCode < 1 {
+		s.notifyErrors(ctx, []resultError{
+			{
+				report: &types.ErrorReport{
+					Message:       result.Exp,
+					ErrorCode:     payload.ErrorCode,
+					Received:      r,
+					Processed:     p,
+					AnalyzerError: "",
+				},
+			},
+		})
+	}
+
+	if err != nil {
+
+		return r, p, err
 	}
 
 	logPayload := logger.LogParams{
@@ -306,9 +336,12 @@ func (s *Server) collect(ctx context.Context, payload types.CollectPayload, c *j
 		GeneratedOutput: result.Output,
 	}
 
-	received, processed, err := result.Stats()
-	s.ServerLog.Printf("report new errors to %d clients\n", len(s.connectedClients.ProcessIds(types.LspClientType)))
-	s.errors = append(s.errors, resultError{
+	analyzerError := ""
+	if err != nil {
+		analyzerError = err.Error()
+	}
+
+	report := resultError{
 		report: &types.ErrorReport{
 			FullMessage:   result.Output,
 			Message:       result.Exp,
@@ -316,31 +349,34 @@ func (s *Server) collect(ctx context.Context, payload types.CollectPayload, c *j
 			Language:      result.Template.Language.Name,
 			Location:      result.Data.MainError.Nearest.Location(),
 			ErrorCode:     payload.ErrorCode,
-			Received:      received,
-			Processed:     processed,
-			AnalyzerError: err.Error(),
+			Received:      r,
+			Processed:     p,
+			AnalyzerError: analyzerError,
 		},
-	})
+	}
 
 	s.logger.Log(logPayload)
-	s.notifyErrors(ctx)
+	s.errors = append(s.errors, report)
+	s.notifyErrors(ctx, []resultError{report})
 
 	// write files to the logger
 	for _, file := range result.Data.Documents {
 		s.logger.WriteFile(file.Path, []byte(file.Contents))
 	}
 
-	return result.Stats()
+	return r, p, nil
 }
 
-func (s *Server) notifyErrors(ctx context.Context, procIds_ ...int) {
+func (s *Server) notifyErrors(ctx context.Context, errors []resultError, procIds_ ...int) {
+	s.ServerLog.Printf("report %d error/s to %d clients\n", len(errors), len(s.connectedClients.ProcessIds(types.LspClientType)))
+
 	lspClients := procIds_
 	if len(lspClients) == 0 {
 		lspClients = s.connectedClients.ProcessIds(types.LspClientType)
 	}
 
 	// TODO: cleanup old errors
-	for _, r := range s.errors {
+	for _, r := range errors {
 		// TODO: make sure that the errors sent are within their working dir
 		s.connectedClients.Notify(ctx, types.ReportMethod, r.report, lspClients...)
 	}

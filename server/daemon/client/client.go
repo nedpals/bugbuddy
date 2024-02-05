@@ -220,30 +220,18 @@ func (c *Client) ResetLogger() error {
 	return c.Call(types.ResetLoggerMethod, nil, nil)
 }
 
-func (c *Client) Collect(errCode int, command, workingDir, errMsg string) (int, int, error) {
-	response := map[string]any{}
-	recognizedErrors := 0
-	processedErrors := 0
+func (c *Client) Collect(errCode int, command, workingDir, errMsg string) (*types.CollectResponse, error) {
+	var response *types.CollectResponse
 	err := c.Call(types.CollectMethod, types.CollectPayload{
 		ErrorCode:  errCode,
 		Command:    command,
 		Error:      errMsg,
 		WorkingDir: workingDir,
 	}, &response)
-	if rawRErrors, ok := response["recognized"]; ok {
-		if rErrors, ok := rawRErrors.(float64); ok {
-			recognizedErrors = int(rErrors)
-		}
+	if response != nil && len(response.Error) > 0 {
+		err = fmt.Errorf(response.Error)
 	}
-	if rawPErrors, ok := response["processed"]; ok {
-		if pErrors, ok := rawPErrors.(float64); ok {
-			processedErrors = int(pErrors)
-		}
-	}
-	if cErr, ok := response["error"].(string); ok && len(cErr) > 0 {
-		err = fmt.Errorf(cErr)
-	}
-	return recognizedErrors, processedErrors, err
+	return response, err
 }
 
 func (c *Client) ResolveDocument(filepath string, content string) error {

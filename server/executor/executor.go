@@ -80,7 +80,13 @@ func Execute(workingDir string, c Collector, prog string, args ...string) (int, 
 		var numErrors int
 		var exitCode int
 		for i, cmd := range commands {
-			if i > 0 {
+			argv := strings.Split(strings.TrimSpace(cmd), " ")
+			numErrors, exitCode, err = Execute(workingDir, c, argv[0], argv[1:]...)
+			if err != nil {
+				return numErrors, exitCode, err
+			}
+
+			if i < len(commands)-1 {
 				switch logicalOps[sep] {
 				case ExecutionLogicalOpOr:
 					if exitCode == 0 {
@@ -92,21 +98,21 @@ func Execute(workingDir string, c Collector, prog string, args ...string) (int, 
 					}
 				}
 			}
-
-			argv := strings.Split(strings.TrimSpace(cmd), " ")
-			numErrors, exitCode, err = Execute(workingDir, c, argv[0], argv[1:]...)
-			if err != nil {
-				return numErrors, exitCode, err
-			}
 		}
 		return numErrors, exitCode, nil
+	}
+
+	if strings.Count(prog, " ") > 0 {
+		splt := strings.Split(prog, " ")
+		prog = splt[0]
+		args = append(splt[1:], args...)
 	}
 
 	errProcessor := &StderrMonitor{
 		workingDir: workingDir,
 		collector:  c,
 		args:       append([]string{prog}, args...),
-		exitCode:   1,
+		exitCode:   0,
 		fPrintWr:   DefaultFprintWr,
 	}
 	defer errProcessor.Flush()
@@ -121,22 +127,24 @@ func Execute(workingDir string, c Collector, prog string, args ...string) (int, 
 
 	sc := bufio.NewScanner(stderrPipe)
 	for sc.Scan() {
-		if len(sc.Bytes()) == 0 {
-			errProcessor.Flush()
-			continue
-		}
+		// if len(sc.Bytes()) == 0 {
+		// 	errProcessor.Flush()
+		// 	continue
+		// }
 		errProcessor.Write(sc.Bytes())
+	}
+
+	if err, ok := progCmd.Wait().(*exec.ExitError); ok {
+		errProcessor.exitCode = err.ExitCode()
 	}
 
 	// flush remaining errors to collector
 	if len(errProcessor.buf.Bytes()) > 0 {
 		errProcessor.Flush()
+	} else if errProcessor.exitCode == 0 {
+		// collect immediately
+		_, _, _ = errProcessor.collector.Collect(errProcessor.exitCode, strings.Join(errProcessor.args, ""), errProcessor.workingDir, "")
 	}
 
-	if err, ok := progCmd.Wait().(*exec.ExitError); ok {
-		errProcessor.exitCode = err.ExitCode()
-		return errProcessor.numErrors, errProcessor.exitCode, nil
-	}
-
-	return errProcessor.numErrors, 0, nil
+	return errProcessor.numErrors, errProcessor.exitCode, nil
 }
