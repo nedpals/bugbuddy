@@ -6,43 +6,25 @@ on:
       - master
 
 jobs:
-  goreleaser:
+  xgo:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v4
+      - name: Build
+        uses: crazy-max/ghaction-xgo@v3
         with:
-          cache-dependency-path: ./server/go.sum
-          go-version-file: './server/go.mod'
-
-      - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v5
-        with:
-          version: nightly
-          args: release --clean
-          workdir: server
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  release:
-    needs: goreleaser
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: nightly
-          name: Nightly Build
-          body: Nightly build release
-          draft: false
-          prerelease: true
-          files: |
-            server/dist/*
+          xgo_version: latest
+          go_version: 1.21.4
+          dest: build
+          pkg: cli
+          prefix: bugbuddy
+          targets: windows/amd64,linux/amd64,linux/arm64,darwin/arm64,darwin/amd64
+          v: true
+          x: false
+          race: false
+          ldflags: -s -w
+          buildmode: default
+          trimpath: true
+          working_dir: $GITHUB_WORKSPACE/server
