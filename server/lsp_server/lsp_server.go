@@ -30,6 +30,10 @@ type FetchRunCommandPayload struct {
 	TextDocument lsp.TextDocumentIdentifier `json:"textDocument"`
 }
 
+type GenerateParticipantIdPayload struct {
+	Confirm bool `json:"confirm"`
+}
+
 type LspServer struct {
 	conn                   *jsonrpc2.Conn
 	daemonClient           *daemonClient.Client
@@ -159,25 +163,58 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 			// TODO: version
 			Diagnostics: []lsp.Diagnostic{},
 		})
-	// case lsp.MethodTextDocumentHover:
-	// 	payload := decodePayload[lsp.HoverParams](ctx, c, r)
-	// 	if payload == nil {
-	// 		return
-	// 	}
+	case "$/participantId":
+		var participantId string
+		if gotParticipantId, err := s.daemonClient.RetrieveParticipantId(); err == nil {
+			participantId = gotParticipantId
+		} else {
+			participantId = "unknown"
+		}
 
-	// 	err := s.daemonClient.Call(
-	// 		daemonTypes.NearestNodeMethod,
-	// 		daemonTypes.NearestNodePayload{
-	// 			Line: int(payload.Position.Line),
-	// 			Column: int(payload.Position.Character),
-	// 			DocumentIdentifier: daemonTypes.DocumentIdentifier{
-	// 				DocumentPath: payload.TextDocument.URI.Filename()
-	// 			},
-	// 		},
-	// 	)
-	// 	if err != nil {
+		c.Reply(ctx, r.ID, map[string]string{"participant_id": participantId})
+		return
+	case "$/participantId/generate":
+		payload := decodePayload[GenerateParticipantIdPayload](ctx, c, r)
+		if payload == nil {
+			return
+		}
 
-	// 	}
+		// check if participant has declined
+		if !payload.Confirm {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Code:    -32002,
+				Message: "You must confirm to generate a new participant id.",
+			})
+			return
+		}
+
+		newPId, err := s.daemonClient.GenerateParticipantId()
+		if err != nil {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Code:    -32002,
+				Message: fmt.Sprintf("Unable to refresh participant id: %s", err.Error()),
+			})
+			return
+		}
+		c.Reply(ctx, r.ID, map[string]string{"participant_id": newPId})
+		return
+	case "$/status":
+		var participantId string
+		if gotParticipantId, err := s.daemonClient.RetrieveParticipantId(); err == nil {
+			participantId = gotParticipantId
+		} else {
+			participantId = "unknown"
+		}
+
+		c.Reply(ctx, r.ID, map[string]any{
+			"daemon": map[string]any{
+				"is_connected": s.daemonClient.IsConnected(),
+				"port":         daemon.CurrentPort(),
+			},
+			"participant_id": participantId,
+			"version":        s.version,
+		})
+		return
 	case "$/fetchRunCommand":
 		payload := decodePayload[FetchRunCommandPayload](ctx, c, r)
 		if payload == nil {
