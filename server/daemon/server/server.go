@@ -16,6 +16,7 @@ import (
 	"github.com/nedpals/bugbuddy/server/daemon/types"
 	"github.com/nedpals/bugbuddy/server/helpers"
 	"github.com/nedpals/bugbuddy/server/logger"
+	"github.com/nedpals/bugbuddy/server/release"
 	"github.com/nedpals/bugbuddy/server/rpc"
 	"github.com/nedpals/errgoengine"
 	"github.com/nedpals/errgoengine/error_templates"
@@ -129,7 +130,7 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 		// introduce the server to the client
 		c.Reply(ctx, r.ID, &types.ServerInfo{
 			Success:                 true,
-			Version:                 "0.1.0",
+			Version:                 release.Version(),
 			ProcessID:               info.ProcessId,
 			SupportedFileExtensions: engineSupportedExtensions,
 		})

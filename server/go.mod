@@ -34,6 +34,7 @@ require (
 )
 
 require (
+	github.com/carlmjohnson/versioninfo v0.22.5
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/lucasepe/codename v0.2.0
 	github.com/segmentio/asm v1.2.0 // indirect

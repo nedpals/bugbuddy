@@ -13,13 +13,15 @@ import (
 	"github.com/nedpals/bugbuddy/server/executor"
 	"github.com/nedpals/bugbuddy/server/helpers"
 	"github.com/nedpals/bugbuddy/server/lsp_server"
+	"github.com/nedpals/bugbuddy/server/release"
 	"github.com/nedpals/errgoengine"
 	"github.com/spf13/cobra"
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "bugbuddy",
-	Short: "BugBuddy is a runtime error analyzer and assistant.",
+	Use:     "bugbuddy",
+	Version: release.Version(),
+	Short:   "BugBuddy is a runtime error analyzer and assistant.",
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		port, err := cmd.Flags().GetInt("port")
 		if err != nil {
