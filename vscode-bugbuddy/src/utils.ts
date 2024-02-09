@@ -1,4 +1,4 @@
-import { Uri, WorkspaceConfiguration, WorkspaceFolder, window, workspace } from "vscode";
+import { StatusBarAlignment, ThemeColor, Uri, WorkspaceConfiguration, WorkspaceFolder, window, workspace } from "vscode";
 
 const shortExtensionId = 'bugbuddy';
 export let extensionId = '';
@@ -36,4 +36,62 @@ export function logError(err: unknown) {
     } else {
         logErrorString(`Something went wrong: ${err}`);
     }
+}
+
+// Status Bar
+export enum ConnectionStatus {
+	disconnected,
+	connecting,
+	connected,
+	failed,
+}
+
+function connStatusToText(status: ConnectionStatus): string {
+	switch (status) {
+		case ConnectionStatus.disconnected:
+			return 'Disconnected';
+		case ConnectionStatus.connecting:
+			return 'Connecting...';
+		case ConnectionStatus.connected:
+			return 'Connected';
+		case ConnectionStatus.failed:
+			return 'Connection Failed';
+	}
+}
+
+function connStatusToIcon(status: ConnectionStatus): string {
+	switch (status) {
+		case ConnectionStatus.disconnected:
+			return '$(circle-slash)';
+		case ConnectionStatus.connecting:
+			return '$(sync~spin)';
+		case ConnectionStatus.connected:
+			return '$(pass-filled)';
+		case ConnectionStatus.failed:
+			return '$(error)';
+	}
+}
+
+export const statusBar = window.createStatusBarItem('bugbuddy', StatusBarAlignment.Right, 1000);
+
+export function setConnectionStatus(status: ConnectionStatus, opts?: { participantId: string | null }) {
+	const icon = connStatusToIcon(status);
+	let text = connStatusToText(status);
+	if (status === ConnectionStatus.connected && opts?.participantId) {
+		text += ` (${opts.participantId})`;
+	}
+	statusBar.text = `${icon} BugBuddy: ${text}`;
+	if (status === ConnectionStatus.failed) {
+		statusBar.backgroundColor = new ThemeColor('errorForeground');
+	} else {
+		statusBar.backgroundColor = undefined;
+	}
+}
+
+export function initializeStatusBar() {
+	statusBar.name = 'BugBuddy';
+	statusBar.tooltip = 'Click to show BugBuddy server menu';
+	statusBar.command = 'bugbuddy.showServerMenu';
+	setConnectionStatus(ConnectionStatus.disconnected);
+	statusBar.show();
 }
