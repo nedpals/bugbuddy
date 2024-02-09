@@ -154,6 +154,9 @@ export async function showServerMenu() {
             case 'Disconnect server':
                 await disconnectServer();
                 break;
+            case 'Generate new participant ID':
+                await generateParticipantId();
+                break;
         }
     }
 }
