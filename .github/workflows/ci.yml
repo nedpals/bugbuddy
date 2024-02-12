@@ -96,28 +96,24 @@ jobs:
       - compile-macos-amd64
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v1
-      - name: Fetch linux_amd64
-        uses: actions/download-artifact@v1
-        with:
-          name: linux_amd64
-          path: ./linux_amd64
-      - name: Fetch macos_universal
-        uses: actions/download-artifact@v1
-        with:
-          name: macos_universal
-          path: ./macos_universal
       - name: Fetch windows_amd64
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v3
         with:
           name: windows_amd64
-          path: ./windows_amd64
+      - name: Fetch linux_amd64
+        uses: actions/download-artifact@v3
+        with:
+          name: linux_amd64
+      - name: Fetch macos_universal
+        uses: actions/download-artifact@v3
+        with:
+          name: macos_universal
       - name: Generate file checksums
         run: |
           sha256sum \
-            ./windows_amd64/bugbuddy_windows_amd64.exe \
-            ./linux_amd64/bugbuddy_linux_amd64 \
-            ./macos_universal/bugbuddy_macos_universal \
+            ./bugbuddy_windows_amd64.exe \
+            ./bugbuddy_linux_amd64 \
+            ./bugbuddy_macos_universal \
             > checksums.txt
       - uses: "marvinpinto/action-automatic-releases@latest"
         name: Create Release and Upload Assets
@@ -128,7 +124,7 @@ jobs:
           prerelease: true
           title: "Latest Nightly Build"
           files: |
-            windows_amd64/bugbuddy_windows_amd64.exe
-            linux_amd64/bugbuddy_linux_amd64
-            macos_universal/bugbuddy_macos_universal
+            bugbuddy_windows_amd64.exe
+            bugbuddy_linux_amd64
+            bugbuddy_macos_universal
             checksums.txt
