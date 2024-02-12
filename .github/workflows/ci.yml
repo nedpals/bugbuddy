@@ -8,6 +8,7 @@ on:
 env:
   CGO_ENABLED: 1
   GO_VERSION: 1.21.4
+  ENTRYPOINT: cli/main.go
 
 jobs:
   compile-windows-amd64:
@@ -25,7 +26,7 @@ jobs:
         run: |
           go version
           go mod download
-          go build -o cmd/bugbuddy_windows_amd64.exe cli/main.go
+          go build -o cmd/bugbuddy_windows_amd64.exe ${{ env.ENTRYPOINT }}
       - name: Create binary only artifact
         uses: actions/upload-artifact@v4
         with:
@@ -47,7 +48,7 @@ jobs:
         run: |
           go version
           go mod download
-          go build -o cmd/bugbuddy_linux_amd64 cli/main.go
+          go build -o cmd/bugbuddy_linux_amd64 ${{ env.ENTRYPOINT }}
       - name: Create binary only artifact
         uses: actions/upload-artifact@v4
         with:
@@ -70,7 +71,7 @@ jobs:
         run: |
           go version
           go mod download
-          go build -o server/cmd/bugbuddy_macos_amd64 server
+          go build -o server/cmd/bugbuddy_macos_amd64 ${{ env.ENTRYPOINT }}
       - name: Build arm64 binary
         working-directory: ./server
         env:
@@ -78,7 +79,7 @@ jobs:
         run: |
           go version
           go mod download
-          go build -o server/cmd/bugbuddy_macos_arm64 server
+          go build -o server/cmd/bugbuddy_macos_arm64 ${{ env.ENTRYPOINT }}
       - name: Create universal binary
         run: lipo -create -output server/cmd/bugbuddy_macos_universal server/cmd/bugbuddy_macos_amd64 server/cmd/bugbuddy_macos_arm64
       - name: Create binary only artifact
