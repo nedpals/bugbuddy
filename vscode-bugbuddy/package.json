@@ -6,7 +6,7 @@
   "description": "Official VSCode extension for BugBuddy",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nedpals/bugbuddy"
+    "url": "https://github.com/nedpals/bugbuddy/tree/master/vscode-bugbuddy"
   },
   "version": "0.1.0",
   "engines": {
