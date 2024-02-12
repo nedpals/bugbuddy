@@ -5,26 +5,126 @@ on:
     branches:
       - master
 
-jobs:
-  xgo:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+env:
+  CGO_ENABLED: 1
 
-      - name: Build
-        uses: crazy-max/ghaction-xgo@v3
+jobs:
+  compile-windows-amd64:
+    runs-on: windows-2019
+    env:
+      GOOS: windows
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
         with:
-          xgo_version: latest
-          go_version: 1.21.4
-          dest: build
-          pkg: cli
-          prefix: bugbuddy
-          targets: windows/amd64,linux/amd64,linux/arm64,darwin/arm64,darwin/amd64
-          v: true
-          x: false
-          race: false
-          ldflags: -s -w
-          buildmode: default
-          trimpath: true
-          working_dir: $GITHUB_WORKSPACE/server
+          go-version: 1.24.1
+      - working-directory: ./server
+        env:
+          GOARCH: amd64
+        run: |
+          go version
+          go mod download
+          go build -o cmd/bugbuddy_windows_amd64.exe cli/main.go
+      - name: Create binary only artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows_amd64
+          path: ./server/cmd/bugbuddy_windows_amd64.exe
+
+  compile-linux-amd64:
+    runs-on: ubuntu-latest
+    env:
+      GOOS: linux
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
+        with:
+          go-version: 1.24.1
+      - working-directory: ./server
+        env:
+          GOARCH: amd64
+        run: |
+          go version
+          go mod download
+          go build -o cmd/bugbuddy_linux_amd64 cli/main.go
+      - name: Create binary only artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux_amd64
+          path: ./server/cmd/bugbuddy_linux_amd64
+
+  compile-macos-amd64:
+    runs-on: macos-latest
+    env:
+      GOOS: darwin
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
+        with:
+          go-version: 1.24.1
+      - name: Build amd64 binary
+        env:
+          GOARCH: amd64
+        run: |
+          go version
+          go mod download
+          go build -o server/cmd/bugbuddy_macos_amd64 server
+      - name: Build arm64 binary
+        env:
+          GOARCH: arm64
+        run: |
+          go version
+          go mod download
+          go build -o server/cmd/bugbuddy_macos_arm64 server
+      - name: Create universal binary
+        run: lipo -create -output server/cmd/bugbuddy_macos_universal server/cmd/bugbuddy_macos_amd64 server/cmd/bugbuddy_macos_arm64
+      - name: Create binary only artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos_universal
+          path: ./server/cmd/bugbuddy_macos_universal
+
+  release-nightly:
+    name: Create Github Release
+    needs:
+      - compile-windows-amd64
+      - compile-linux-amd64
+      - compile-macos-amd64
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v1
+      - name: Fetch linux_amd64
+        uses: actions/download-artifact@v1
+        with:
+          name: linux_amd64
+          path: ./linux_amd64
+      - name: Fetch macos_universal
+        uses: actions/download-artifact@v1
+        with:
+          name: macos_universal
+          path: ./macos_universal
+      - name: Fetch windows_amd64
+        uses: actions/download-artifact@v1
+        with:
+          name: windows_amd64
+          path: ./windows_amd64
+      - name: Generate file checksums
+        run: |
+          sha256sum \
+            ./windows_amd64/bugbuddy_windows_amd64.exe \
+            ./linux_amd64/bugbuddy_linux_amd64 \
+            ./macos_universal/bugbuddy_macos_universal \
+            > checksums.txt
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        name: Create Release and Upload Assets
+        id: create_release
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "latest"
+          prerelease: true
+          title: "Latest Nightly Build"
+          files: |
+            windows_amd64/bugbuddy_windows_amd64.exe
+            linux_amd64/bugbuddy_linux_amd64
+            macos_universal/bugbuddy_macos_universal
+            checksums.txt
