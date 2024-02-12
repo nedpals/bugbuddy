@@ -2,6 +2,7 @@
   "name": "bugbuddy",
   "publisher": "nedpals",
   "displayName": "BugBuddy",
+  "icon": "images/icon.png",
   "description": "Official VSCode extension for BugBuddy",
   "version": "0.0.1",
   "engines": {
