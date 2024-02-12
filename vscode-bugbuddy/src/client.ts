@@ -1,3 +1,6 @@
+import { join as joinWin32 } from "path/win32";
+import { join as joinPosix } from "path/posix";
+import { homedir } from "os";
 import { ChildProcessWithoutNullStreams, spawn } from "child_process";
 import { commands, window } from "vscode";
 import { LanguageClient, LanguageClientOptions, ServerOptions } from "vscode-languageclient/node";
@@ -39,7 +42,10 @@ export function initializeServer() {
         return client;
     }
 
-    const customPath = getWorkspaceConfig().get<string>('path', 'bugbuddy');
+    const customPath = getWorkspaceConfig().get<string>('path',
+        process.platform === 'win32' ?
+            joinWin32('C:', 'bugbuddy', 'bugbuddy_windows_amd64.exe') :
+            joinPosix(homedir(), 'bugbuddy', process.platform === 'darwin' ? 'bugbuddy_macos_universal' : 'bugbuddy_linux_amd64'));
 	console.log('Launching BugBuddy from', customPath);
 
 	serverProcess = launchServer(customPath);
