@@ -71,7 +71,7 @@ jobs:
         run: |
           go version
           go mod download
-          go build -o server/cmd/bugbuddy_macos_amd64 ${{ env.ENTRYPOINT }}
+          go build -o cmd/bugbuddy_macos_amd64 ${{ env.ENTRYPOINT }}
       - name: Build arm64 binary
         working-directory: ./server
         env:
@@ -79,7 +79,7 @@ jobs:
         run: |
           go version
           go mod download
-          go build -o server/cmd/bugbuddy_macos_arm64 ${{ env.ENTRYPOINT }}
+          go build -o cmd/bugbuddy_macos_arm64 ${{ env.ENTRYPOINT }}
       - name: Create universal binary
         run: lipo -create -output server/cmd/bugbuddy_macos_universal server/cmd/bugbuddy_macos_amd64 server/cmd/bugbuddy_macos_arm64
       - name: Create binary only artifact
