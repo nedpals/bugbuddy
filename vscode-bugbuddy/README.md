@@ -1,6 +1,6 @@
 # vscode-bugbuddy
 
-Official VSCode client extension for BugBuddy.
+Official VSCode client extension for BugBuddy. BugBuddy is a tool for translating programming errors into human-readable messages. It is designed to help beginners understand the errors they encounter while learning to code.
 
 ## Features
 
@@ -17,12 +17,15 @@ This extension requires that BugBuddy is installed and running on your machine. 
 This extension contributes the following settings:
 
 * `bugbuddy.path`: Path to the BugBuddy server.
-
-## Known Issues
-
-Calling out known issues can help limit users opening duplicate issues against your extension.
+* `bugbuddy.dataDirPath`: Path to the BugBuddy data directory.
+* `bugbuddy.daemonPort`: Port to connect to the BugBuddy daemon server.
 
 ## Release Notes
+
+### 0.2.0
+
+- Add ability to get/set BugBuddy data directory.
+- Add ability to connect to a BugBuddy daemon server with a custom port.
 
 ### 0.1.0
 
