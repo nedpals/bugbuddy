@@ -80,6 +80,11 @@ var daemonCmd = &cobra.Command{
 	Use:   "daemon",
 	Short: "Starts a daemon process to collect error messages from programs.",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		// change data-dir if present
+		if dataDir, _ := cmd.Flags().GetString("data-dir"); len(dataDir) != 0 {
+			helpers.SetDataDirPath(dataDir)
+		}
+
 		return daemon.Serve(daemon.CurrentPort())
 	},
 }
@@ -201,6 +206,7 @@ func init() {
 	rootCmd.AddCommand(resetCmd)
 	rootCmd.PersistentFlags().IntP("port", "p", daemon.DEFAULT_PORT, "the port to use for the daemon")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "enable verbose mode")
+	daemonCmd.PersistentFlags().String("data-dir", "", "the directory to use for the daemon. To override the default directory, set the BUGBUDDY_DIR environment variable.")
 }
 
 func main() {
