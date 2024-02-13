@@ -63,7 +63,7 @@ func GetRunnerJson() (map[string]RunCommand, error) {
 	// where the commands stored in runner.json will be stored
 	customRunnerCommands := map[string]RunCommand{}
 
-	dirPath, err := GetOrInitializeDir()
+	dirPath, err := GetOrInitializeDataDir()
 	if err != nil {
 		return customRunnerCommands, err
 	}

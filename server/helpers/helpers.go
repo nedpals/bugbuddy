@@ -7,7 +7,7 @@ import (
 
 var bbDirPath = ""
 
-func SetDirPath(newPath string) error {
+func SetDataDirPath(newPath string) error {
 	// NOTE: when path does not exist, use GetOrInitializeDir
 
 	// set the new path
@@ -15,10 +15,10 @@ func SetDirPath(newPath string) error {
 	return nil
 }
 
-func GetDirPath() string {
+func GetDataDirPath() string {
 	// check if BUGBUDDY_DIR is set. if present, set it as the directory path
 	if envPath := os.Getenv("BUGBUDDY_DIR"); len(envPath) != 0 && bbDirPath != envPath {
-		SetDirPath(envPath)
+		SetDataDirPath(envPath)
 	}
 
 	if len(bbDirPath) != 0 {
@@ -37,8 +37,8 @@ func GetDirPath() string {
 	return filepath.Join(homeDir, ".bugbuddy")
 }
 
-func GetOrInitializeDir() (string, error) {
-	dirPath := GetDirPath()
+func GetOrInitializeDataDir() (string, error) {
+	dirPath := GetDataDirPath()
 	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
 		if err := os.MkdirAll(dirPath, 0755); err != nil {
 			return "", err

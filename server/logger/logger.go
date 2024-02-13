@@ -49,7 +49,7 @@ func NewLoggerPanic() *Logger {
 
 func NewLoggerFromPath(path string) (*Logger, error) {
 	// get or initialize directory
-	dirPath, err := helpers.GetOrInitializeDir()
+	dirPath, err := helpers.GetOrInitializeDataDir()
 	if err != nil {
 		return nil, err
 	}
