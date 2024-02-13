@@ -69,6 +69,7 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 	switch r.Method {
 	case lsp.MethodInitialize:
 		var dataDirPath string
+		customDaemonPort := daemon.DEFAULT_PORT
 
 		payload := decodePayload[lsp.InitializeParams](ctx, c, r)
 		if payload != nil {
@@ -76,17 +77,28 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 				if newDataDirPath, ok := opts["data_dir_path"].(string); ok {
 					dataDirPath = newDataDirPath
 				}
+
+				if newDaemonPort, ok := opts["daemon_port"].(int); ok {
+					customDaemonPort = newDaemonPort
+				}
 			}
 		}
 
-		if !s.daemonClient.IsConnected() {
-			if err := s.daemonClient.Connect(); err != nil {
-				c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
-					Code:    -32002,
-					Message: fmt.Sprintf("Unable to connect to daemon: %s", err.Error()),
-				})
-				return
-			}
+		// reinitialize the daemon client to use the custom port
+		if customDaemonPort != daemon.DEFAULT_PORT {
+			daemon.SetDefaultPort(fmt.Sprintf(":%d", customDaemonPort))
+			daemonClient := newDaemonClientForServer(ctx, s)
+			daemonClient.SpawnOnMaxReconnect = true
+			s.daemonClient = daemonClient
+		}
+
+		// connect to the daemon
+		if err := s.daemonClient.Connect(); err != nil && err.Error() != "already connected" {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Code:    -32002,
+				Message: fmt.Sprintf("Unable to connect to daemon: %s", err.Error()),
+			})
+			return
 		}
 
 		// change the data dir path on initialize

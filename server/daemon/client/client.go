@@ -109,6 +109,10 @@ func (c *Client) SetConn(conn net.Conn) {
 }
 
 func (c *Client) Connect() error {
+	if c.IsConnected() {
+		return fmt.Errorf("already connected")
+	}
+
 	if c.context == nil {
 		c.context = context.Background()
 	}

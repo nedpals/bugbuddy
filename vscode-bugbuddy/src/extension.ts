@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
-import { disconnectServer, generateParticipantId, showServerMenu, startServer } from './client';
+import { disconnectServer, generateParticipantId, setDataDirPath, showServerMenu, startServer } from './client';
 import { disposeTerminal, runFromUri } from './runner';
-import { initializeStatusBar, setExtensionId } from './utils';
+import { getWorkspaceConfig, initializeStatusBar, setExtensionId } from './utils';
 
 export function activate(context: vscode.ExtensionContext) {
 	setExtensionId(context.extension.id);
@@ -31,9 +31,9 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     vscode.workspace.onDidChangeConfiguration((e) => {
-        if (e.affectsConfiguration('bugbuddy.path')) {
+        if (e.affectsConfiguration('bugbuddy.path') || e.affectsConfiguration('bugbuddy.daemonPort')) {
             // prompt user first if they want to restart server
-            vscode.window.showInformationMessage('BugBuddy server path has changed. Do you want to restart the server?', 'Yes', 'No')
+            vscode.window.showInformationMessage('BugBuddy server has changed. Do you want to restart the server?', 'Yes', 'No')
                 .then((value) => {
                     // restart server if server settings change
                     if (value === 'Yes') {

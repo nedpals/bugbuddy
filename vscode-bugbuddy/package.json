@@ -64,7 +64,12 @@
           "scope": "resource",
           "type": "string",
           "description": "Custom path to BugBuddy data directory. Leave blank to use the default directory"
-        }
+        },
+        "bugbuddy.daemonPort": {
+          "scope": "resource",
+          "type": "number",
+          "description": "Custom port for BugBuddy daemon",
+          "default": 3434
         }
       }
     }
