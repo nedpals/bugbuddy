@@ -14,6 +14,7 @@ import (
 	daemonClient "github.com/nedpals/bugbuddy/server/daemon/client"
 	daemonTypes "github.com/nedpals/bugbuddy/server/daemon/types"
 	"github.com/nedpals/bugbuddy/server/helpers"
+	"github.com/nedpals/bugbuddy/server/release"
 	"github.com/nedpals/bugbuddy/server/rpc"
 	"github.com/nedpals/bugbuddy/server/types"
 	"github.com/sourcegraph/jsonrpc2"
@@ -351,7 +352,7 @@ func Start() error {
 		publishChan:            make(chan int),
 		doneChan:               doneChan,
 		documents:              map[uri.URI]*types.Rope{},
-		version:                "1.0",
+		version:                release.Version(),
 	}
 
 	lspServer.conn = jsonrpc2.NewConn(
