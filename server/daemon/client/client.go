@@ -254,6 +254,18 @@ func (c *Client) DeleteDocument(filepath string) error {
 	}, nil)
 }
 
+func (c *Client) GetDataDirPath() (string, error) {
+	var path string
+	err := c.Call(types.GetDataDirMethod, nil, &path)
+	return path, err
+}
+
+func (c *Client) SetDataDirPath(newPath string) error {
+	return c.Call(types.SetDataDirMethod, types.SetDataDirRequest{
+		NewPath: newPath,
+	}, nil)
+}
+
 func (c *Client) Handshake() (*types.ServerInfo, error) {
 	var result *types.ServerInfo
 	err := c.Call(types.HandshakeMethod, &types.ClientInfo{

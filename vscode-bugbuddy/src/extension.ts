@@ -41,6 +41,8 @@ export function activate(context: vscode.ExtensionContext) {
                         startServer();
                     }
                 });
+        } else if (e.affectsConfiguration('bugbuddy.dataDirPath')) {
+            setDataDirPath(getWorkspaceConfig().get('dataDirPath', ''));
         }
     });
 

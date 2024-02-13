@@ -1,3 +1,5 @@
+import { spawn } from "child_process";
+import { platform } from "os";
 import { StatusBarAlignment, ThemeColor, Uri, WorkspaceConfiguration, WorkspaceFolder, window, workspace } from "vscode";
 
 const shortExtensionId = 'bugbuddy';
@@ -26,16 +28,16 @@ export function getWorkspaceConfig(): WorkspaceConfiguration {
 export const outputChannel = window.createOutputChannel('BugBuddy');
 
 export function logErrorString(message: string) {
-    window.showErrorMessage(message);
-    outputChannel.appendLine(`[BugBuddy - ERROR] ${message}`);
+	window.showErrorMessage(message);
+	outputChannel.appendLine(`[BugBuddy - ERROR] ${message}`);
 }
 
 export function logError(err: unknown) {
-    if (err instanceof Error) {
-        logErrorString(err.message);
-    } else {
-        logErrorString(`Something went wrong: ${err}`);
-    }
+	if (err instanceof Error) {
+		logErrorString(err.message);
+	} else {
+		logErrorString(`Something went wrong: ${err}`);
+	}
 }
 
 // Status Bar
@@ -94,4 +96,27 @@ export function initializeStatusBar() {
 	statusBar.command = 'bugbuddy.showServerMenu';
 	setConnectionStatus(ConnectionStatus.disconnected);
 	statusBar.show();
+}
+
+export function openExplorerIn(path: string, callback: (err: Error) => void) {
+	var cmd = ``;
+	switch (platform().toLowerCase().replace(/[0-9]/g, ``).replace(`darwin`, `macos`)) {
+		case `win`:
+			path = path || '=';
+			cmd = `explorer`;
+			break;
+		case `linux`:
+			path = path || '/';
+			cmd = `xdg-open`;
+			break;
+		case `macos`:
+			path = path || '/';
+			cmd = `open`;
+			break;
+	}
+	let p = spawn(cmd, [path]);
+	p.on('error', (err) => {
+		p.kill();
+		return callback(err);
+	});
 }

@@ -59,6 +59,12 @@
           "scope": "resource",
           "type": "string",
           "description": "Custom path to BugBuddy executable"
+        },
+        "bugbuddy.dataDirPath": {
+          "scope": "resource",
+          "type": "string",
+          "description": "Custom path to BugBuddy data directory. Leave blank to use the default directory"
+        }
         }
       }
     }

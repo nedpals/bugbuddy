@@ -61,3 +61,7 @@ type CollectResponse struct {
 	Processed  int
 	Error      string
 }
+
+type SetDataDirRequest struct {
+	NewPath string `json:"new_path"`
+}

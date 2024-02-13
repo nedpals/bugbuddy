@@ -67,6 +67,17 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 
 	switch r.Method {
 	case lsp.MethodInitialize:
+		var dataDirPath string
+
+		payload := decodePayload[lsp.InitializeParams](ctx, c, r)
+		if payload != nil {
+			if opts, ok := payload.InitializationOptions.(map[string]any); ok {
+				if newDataDirPath, ok := opts["data_dir_path"].(string); ok {
+					dataDirPath = newDataDirPath
+				}
+			}
+		}
+
 		if !s.daemonClient.IsConnected() {
 			if err := s.daemonClient.Connect(); err != nil {
 				c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
@@ -74,6 +85,16 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 					Message: fmt.Sprintf("Unable to connect to daemon: %s", err.Error()),
 				})
 				return
+			}
+		}
+
+		// change the data dir path on initialize
+		if len(dataDirPath) > 0 {
+			if err := s.daemonClient.SetDataDirPath(dataDirPath); err != nil {
+				c.Reply(ctx, r.ID, lsp.ShowMessageParams{
+					Type:    lsp.MessageTypeError,
+					Message: fmt.Sprintf("Unable to set data dir: %s", err.Error()),
+				})
 			}
 		}
 
@@ -218,6 +239,10 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 	case "$/fetchRunCommand":
 		payload := decodePayload[FetchRunCommandPayload](ctx, c, r)
 		if payload == nil {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Code:    -32002,
+				Message: "Unable to decode params",
+			})
 			return
 		}
 
@@ -228,10 +253,45 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 				Code:    -32002,
 				Message: fmt.Sprintf("Unable to run program: %s", err.Error()),
 			})
+			return
 		}
 
 		c.Reply(ctx, r.ID, map[string]string{"command": runCommand})
 		return
+	case "$/fetchDataDir":
+		// call current data dir used by daemon
+		dataDir, err := s.daemonClient.GetDataDirPath()
+		if err != nil {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Code:    -32002,
+				Message: fmt.Sprintf("Unable to fetch data dir: %s", err.Error()),
+			})
+		}
+
+		c.Reply(ctx, r.ID, map[string]string{"data_dir": dataDir})
+		return
+	case "$/setDataDir":
+		// set the data dir used by daemon
+		payload := decodePayload[daemonTypes.SetDataDirRequest](ctx, c, r)
+		if payload == nil {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Code:    -32002,
+				Message: "Unable to decode params",
+			})
+			return
+		}
+
+		if err := s.daemonClient.SetDataDirPath(payload.NewPath); err != nil {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Code:    -32002,
+				Message: fmt.Sprintf("Unable to set data dir: %s", err.Error()),
+			})
+		}
+
+		c.Reply(ctx, r.ID, lsp.ShowMessageParams{
+			Type:    lsp.MessageTypeInfo,
+			Message: fmt.Sprintf("BugBuddy dir set to %s", payload.NewPath),
+		})
 	case lsp.MethodExit:
 		s.doneChan <- 0
 		return

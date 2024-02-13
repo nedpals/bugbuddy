@@ -38,12 +38,14 @@ type Server struct {
 	errors           []resultError
 }
 
-func (d *Server) SetLogger(l *logger.Logger) {
+func (d *Server) SetLogger(l *logger.Logger) error {
+	// Close the old logger before setting a new one
 	if err := d.logger.Close(); err != nil {
-		fmt.Printf("error: %s\n", err.Error())
+		return err
 	}
 
 	d.logger = l
+	return nil
 }
 
 func (d *Server) Clients() connectedClients {
@@ -303,6 +305,66 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 			return
 		}
 		c.Reply(ctx, r.ID, "ok")
+	case types.GetDataDirMethod:
+		dataDir := helpers.GetDataDirPath()
+		c.Reply(ctx, r.ID, dataDir)
+	case types.SetDataDirMethod:
+		var payload types.SetDataDirRequest
+		if err := json.Unmarshal(*r.Params, &payload); err != nil {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Message: "Unable to decode params of method " + r.Method,
+			})
+			return
+		}
+
+		if len(payload.NewPath) == 0 {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Message: "New path must not be empty",
+			})
+			return
+		}
+
+		// get the old data dir
+		oldDataDir := helpers.GetDataDirPath()
+
+		// set the new data dir
+		helpers.SetDataDirPath(payload.NewPath)
+
+		// reload the logger. we wont be using NewLoggerPanic because
+		// we dont want to crash the daemon if the logger fails to load
+		logger, err := logger.NewLogger()
+		if err != nil {
+			if logger != nil {
+				// close the logger just to be sure
+				logger.Close()
+			}
+
+			// revert the data dir
+			helpers.SetDataDirPath(oldDataDir)
+
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Message: fmt.Sprintf("Something went wrong while setting the new data dir: %s", err.Error()),
+			})
+			return
+		}
+
+		if err := d.SetLogger(logger); err != nil {
+			if logger != nil {
+				// close the logger if it's not nil
+				logger.Close()
+			}
+
+			// revert the data dir
+			helpers.SetDataDirPath(oldDataDir)
+
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Message: fmt.Sprintf("Something went wrong while setting the new data dir: %s", err.Error()),
+			})
+			return
+		}
+
+		d.ServerLog.Printf("data dir set to %s\n", payload.NewPath)
+		c.Reply(ctx, r.ID, "ok")
 	}
 }
 
@@ -419,7 +481,9 @@ func Start(server *Server, addr string) error {
 	disconnChan := make(chan int, 1)
 	exitSignal := make(chan os.Signal, 1)
 
-	server.SetLogger(logger.NewLoggerPanic())
+	if err := server.SetLogger(logger.NewLoggerPanic()); err != nil {
+		fmt.Printf("logger error: %s\n", err.Error())
+	}
 
 	go func() {
 		fmt.Println("daemon started on " + addr)

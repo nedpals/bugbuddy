@@ -243,5 +243,9 @@ func (log *Logger) DeleteFile(filepath string) error {
 }
 
 func (log *Logger) Close() error {
+	// add a check to avoid nil pointer dereference
+	if log == nil || log.db == nil {
+		return nil
+	}
 	return log.db.Close()
 }

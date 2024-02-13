@@ -27,10 +27,12 @@ const (
 
 // server methods
 var (
-	HandshakeMethod = serverNamespace.methodName("handshake")
-	ShutdownMethod  = serverNamespace.methodName("shutdown")
-	CollectMethod   = serverNamespace.methodName("collect")
-	PingMethod      = serverNamespace.methodName("ping")
+	HandshakeMethod  = serverNamespace.methodName("handshake")
+	ShutdownMethod   = serverNamespace.methodName("shutdown")
+	CollectMethod    = serverNamespace.methodName("collect")
+	PingMethod       = serverNamespace.methodName("ping")
+	GetDataDirMethod = serverNamespace.methodName("dataDir")
+	SetDataDirMethod = serverNamespace.methodName("dataDir/set")
 )
 
 // logger methods

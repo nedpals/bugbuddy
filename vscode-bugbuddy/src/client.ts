@@ -4,7 +4,7 @@ import { homedir } from "os";
 import { ChildProcessWithoutNullStreams, spawn } from "child_process";
 import { commands, window } from "vscode";
 import { LanguageClient, LanguageClientOptions, ServerOptions } from "vscode-languageclient/node";
-import { ConnectionStatus, extensionId, getWorkspaceConfig, outputChannel, setConnectionStatus } from "./utils";
+import { ConnectionStatus, extensionId, getWorkspaceConfig, openExplorerIn, outputChannel, setConnectionStatus } from "./utils";
 
 let serverProcess: ChildProcessWithoutNullStreams;
 let client: LanguageClient;
@@ -52,7 +52,13 @@ export function initializeServer() {
 
 	const serverOpts: ServerOptions = () => Promise.resolve(serverProcess);
 	const clientOpts: LanguageClientOptions = {
-		documentSelector: [{ scheme: 'file' }]
+		documentSelector: [{ scheme: 'file' }],
+        initializationOptions: {
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            data_dir_path: getWorkspaceConfig().get('dataDirPath'),
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            daemon_port: getWorkspaceConfig().get('daemonPort', 3434),
+        }
 	};
 
 	client = new LanguageClient('BugBuddy LSP', serverOpts, clientOpts);
@@ -77,6 +83,25 @@ export async function startServer() {
         setConnectionStatus(ConnectionStatus.failed);
         window.showErrorMessage(`Failed to connect: ${e}`);
     }
+}
+
+export async function setDataDirPath(newPath: string) {
+    if (!newPath) {
+        // do not continue if path is empty
+        return;
+    }
+
+    if (!isServerConnected()) {
+        window.showErrorMessage('BugBuddy server is not connected. Please connect to the server first.');
+        return;
+    }
+
+    // change data dir path if server is connected
+    const client = getClient();
+    await client.sendRequest('$/setDataDir', {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        new_path: newPath
+    });
 }
 
 function disposeErrorSection() {
@@ -140,9 +165,9 @@ interface ServerStats {
 
 export async function showServerMenu() {
     let stats: ServerStats | null = null;
+    const client = getClient();
 
     try {
-        const client = getClient();
         if (client.needsStart()) {
             throw new ClientError('BugBuddy LSP client not initialized.');
         }
@@ -158,7 +183,8 @@ export async function showServerMenu() {
             `Participant ID: ${stats ? stats.participant_id : 'unknown'}`,
             `Daemon: ${stats && stats.daemon.is_connected ? `Connected at port ${stats.daemon.port}` : 'Disconnected'}`,
             ...(stats ? [
-                `Generate new participant ID`,
+                'Open BugBuddy data directory',
+                'Generate new participant ID',
                 'Disconnect server'
             ] : [
                 'Connect server'
@@ -176,6 +202,15 @@ export async function showServerMenu() {
                 break;
             case 'Generate new participant ID':
                 await generateParticipantId();
+                break;
+            case 'Open BugBuddy data directory':
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                const resp = await client.sendRequest<{ data_dir: string }>('$/fetchDataDir');
+                openExplorerIn(resp.data_dir, (err) => {
+                    if (err) {
+                        window.showErrorMessage(`Failed to open directory: ${err}`);
+                    }
+                });
                 break;
         }
     }
