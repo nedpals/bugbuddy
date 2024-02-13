@@ -93,13 +93,19 @@ function disposeErrorSection() {
 
 export async function disconnectServer() {
     try {
+        const client = getClient();
+
+        // if client is not initialized, do nothing
+        if (!isServerConnected()) {
+            return;
+        }
+
         // set status bar to disconnected
         setConnectionStatus(ConnectionStatus.disconnected);
 
         // remove active bugbuddy markdown preview
         disposeErrorSection();
 
-        const client = getClient();
         await client.stop();
         await client.dispose();
     } catch (e) {
@@ -109,6 +115,14 @@ export async function disconnectServer() {
             throw e;
         }
     }
+}
+
+export function isServerConnected() {
+    const client = getClient();
+    if (!client) {
+        return false;
+    }
+    return client.needsStop();
 }
 
 // Language server stats menu

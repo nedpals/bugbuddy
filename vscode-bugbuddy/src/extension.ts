@@ -30,6 +30,20 @@ export function activate(context: vscode.ExtensionContext) {
         },
     });
 
+    vscode.workspace.onDidChangeConfiguration((e) => {
+        if (e.affectsConfiguration('bugbuddy.path')) {
+            // prompt user first if they want to restart server
+            vscode.window.showInformationMessage('BugBuddy server path has changed. Do you want to restart the server?', 'Yes', 'No')
+                .then((value) => {
+                    // restart server if server settings change
+                    if (value === 'Yes') {
+                        disconnectServer();
+                        startServer();
+                    }
+                });
+        }
+    });
+
 	initializeStatusBar();
 	startServer();
 }
