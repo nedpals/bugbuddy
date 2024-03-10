@@ -160,7 +160,7 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 			})
 		}
 
-		rec, p, err := d.collect(ctx, payload, c)
+		rec, p, err := d.collect(ctx, payload)
 		if err != nil {
 			d.ServerLog.Printf("collect error: %s\n", err.Error())
 			c.Reply(ctx, r.ID, types.CollectResponse{
@@ -368,7 +368,7 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 	}
 }
 
-func (s *Server) collect(ctx context.Context, payload types.CollectPayload, c *jsonrpc2.Conn) (recognized int, processed int, err error) {
+func (s *Server) collect(ctx context.Context, payload types.CollectPayload) (recognized int, processed int, err error) {
 	result := helpers.AnalyzeError(s.engine, payload.WorkingDir, payload.Error)
 	r, p, err := result.Stats()
 	s.ServerLog.Printf("collect: %d recognized, %d processed\n", r, p)
@@ -387,7 +387,6 @@ func (s *Server) collect(ctx context.Context, payload types.CollectPayload, c *j
 	}
 
 	if err != nil {
-
 		return r, p, err
 	}
 
@@ -396,6 +395,9 @@ func (s *Server) collect(ctx context.Context, payload types.CollectPayload, c *j
 		ErrorCode:       payload.ErrorCode,
 		ErrorMessage:    payload.Error,
 		FilePath:        result.Data.MainError.Document.Path,
+		FileVersion:     result.Data.MainError.Document.Version,
+		ErrorLine:       result.Data.MainError.Nearest.StartPosition().Line,
+		ErrorColumn:     result.Data.MainError.Nearest.StartPosition().Column,
 		GeneratedOutput: result.Output,
 	}
 
