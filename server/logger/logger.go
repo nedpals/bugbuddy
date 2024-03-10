@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/lucasepe/codename"
 
 	_ "embed"
@@ -40,7 +41,7 @@ var initScript string
 
 type Logger struct {
 	participantId string
-	db            *sql.DB
+	db            *sqlx.DB
 }
 
 func NewMemoryLogger() (*Logger, error) {
@@ -88,7 +89,7 @@ func NewLoggerFromPathPanic(path string) *Logger {
 
 func setupLogger(logsDbPath string) (*Logger, error) {
 	// open database
-	db, err := sql.Open("sqlite", logsDbPath)
+	db, err := sqlx.Open("sqlite", logsDbPath)
 	if err != nil {
 		return nil, err
 	}
@@ -190,13 +191,15 @@ func (log *Logger) GenerateSeed() (int64, error) {
 }
 
 type LogEntry struct {
-	ParticipantId   string
-	ExecutedCommand string
-	ErrorCode       int
-	ErrorMessage    string
-	GeneratedOutput string
-	FilePath        string
-	CreatedAt       *NullTime
+	Id              int       `db:"id,omitempty"`
+	ParticipantId   string    `db:"participant_id"`
+	ExecutedCommand string    `db:"executed_command"`
+	ErrorCode       int       `db:"error_code"`
+	ErrorMessage    string    `db:"error_message"`
+	GeneratedOutput string    `db:"generated_output"`
+	FilePath        string    `db:"file_path"`
+	FileVersion     int       `db:"file_version"`
+	CreatedAt       *NullTime `db:"created_at"`
 }
 
 func (log *Logger) Log(entry LogEntry) error {
@@ -208,16 +211,17 @@ func (log *Logger) Log(entry LogEntry) error {
 		entry.CreatedAt = &NullTime{Time: time.Now(), Valid: true}
 	}
 
-	_, err := log.db.Exec(
-		"INSERT INTO logs (participant_id, executed_command, error_code, error_message, generated_output, file_path, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-		entry.ParticipantId,
-		entry.ExecutedCommand,
-		entry.ErrorCode,
-		entry.ErrorMessage,
-		entry.GeneratedOutput,
-		entry.FilePath,
-		entry.CreatedAt,
-	)
+	_, err := log.db.NamedExec(`INSERT INTO logs (
+	participant_id, executed_command, 
+	error_code, 
+	error_message, generated_output, file_path, 
+	file_version, created_at
+) VALUES (
+	:participant_id, :executed_command, 
+	:error_code,
+	:error_message, :generated_output, :file_path, 
+	:file_version, :created_at
+)`, &entry)
 	return err
 }
 
@@ -225,7 +229,7 @@ func (log *Logger) Log(entry LogEntry) error {
 // This will allow us to iterate through the log entries without loading all of them into memory
 // This is useful for large logs
 type LogEntryIterator struct {
-	rows *sql.Rows
+	rows *sqlx.Rows
 }
 
 func (it *LogEntryIterator) Next() bool {
@@ -238,7 +242,7 @@ func (it *LogEntryIterator) Next() bool {
 
 func (it *LogEntryIterator) Value() (LogEntry, error) {
 	var entry LogEntry
-	if err := it.rows.Scan(&entry.ParticipantId, &entry.ExecutedCommand, &entry.ErrorCode, &entry.ErrorMessage, &entry.GeneratedOutput, &entry.FilePath, &entry.CreatedAt); err != nil {
+	if err := it.rows.StructScan(&entry); err != nil {
 		it.rows.Close()
 		return LogEntry{}, err
 	}
@@ -258,7 +262,7 @@ func (it *LogEntryIterator) List() ([]LogEntry, error) {
 }
 
 func (log *Logger) Entries() (*LogEntryIterator, error) {
-	rows, err := log.db.Query("SELECT participant_id, executed_command, error_code, error_message, generated_output, file_path, created_at FROM logs")
+	rows, err := log.db.Queryx("SELECT * FROM logs")
 	if err != nil {
 		defer rows.Close()
 		return nil, err
@@ -267,7 +271,7 @@ func (log *Logger) Entries() (*LogEntryIterator, error) {
 }
 
 func (log *Logger) EntriesByParticipantId(participantId string) (*LogEntryIterator, error) {
-	rows, err := log.db.Query("SELECT participant_id, executed_command, error_code, error_message, generated_output, file_path, created_at FROM logs WHERE participant_id = ?", participantId)
+	rows, err := log.db.Queryx("SELECT * FROM logs WHERE participant_id = ?", participantId)
 	if err != nil {
 		defer rows.Close()
 		return nil, err

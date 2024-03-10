@@ -11,6 +11,7 @@ require (
 )
 
 require (
+	github.com/jmoiron/sqlx v1.3.5
 	github.com/mattn/go-isatty v0.0.20
 	modernc.org/sqlite v1.28.0
 )
