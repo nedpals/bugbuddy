@@ -233,6 +233,8 @@ var analyzeLogCmd = &cobra.Command{
 
 				if fi.IsDir() {
 					log.Fatalln("directories are not supported")
+				} else if filepath.Ext(match) != ".db" {
+					log.Fatalln("only .db files are supported")
 				}
 
 				loggerLoaders = append(loggerLoaders, func() (*logger.Logger, error) {
