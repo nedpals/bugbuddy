@@ -24,16 +24,22 @@ type NullTime struct {
 
 // Scan implements the Scanner interface.
 func (nt *NullTime) Scan(value interface{}) error {
-	nt.Time, nt.Valid = value.(time.Time)
+	t, err := time.Parse(time.RFC3339Nano, value.(string))
+	if err != nil {
+		return nil
+	}
+
+	nt.Time = t
+	nt.Valid = true
 	return nil
 }
 
 // Value implements the driver Valuer interface.
 func (nt NullTime) Value() (driver.Value, error) {
 	if !nt.Valid {
-		return time.Now(), nil
+		return time.Now().Format(time.RFC3339Nano), nil
 	}
-	return nt.Time, nil
+	return nt.Time.Format(time.RFC3339Nano), nil
 }
 
 //go:embed init.sql
@@ -202,7 +208,7 @@ type LogEntry struct {
 	GeneratedOutput string    `db:"generated_output"`
 	FilePath        string    `db:"file_path"`
 	FileVersion     int       `db:"file_version"`
-	CreatedAt       *NullTime `db:"created_at"`
+	CreatedAt       *NullTime `db:"created_at,omitempty"`
 }
 
 func (log *Logger) Log(entry LogEntry) error {
