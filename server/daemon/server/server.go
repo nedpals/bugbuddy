@@ -391,7 +391,7 @@ func (s *Server) collect(ctx context.Context, payload types.CollectPayload, c *j
 		return r, p, err
 	}
 
-	logPayload := logger.LogParams{
+	logPayload := logger.LogEntry{
 		ExecutedCommand: payload.Command,
 		ErrorCode:       payload.ErrorCode,
 		ErrorMessage:    payload.Error,

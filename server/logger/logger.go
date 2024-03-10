@@ -2,6 +2,7 @@ package logger
 
 import (
 	"database/sql"
+	"database/sql/driver"
 	"math/rand"
 	"path/filepath"
 	"strconv"
@@ -14,6 +15,25 @@ import (
 	"github.com/nedpals/bugbuddy/server/helpers"
 	_ "modernc.org/sqlite"
 )
+
+type NullTime struct {
+	Time  time.Time
+	Valid bool // Valid is true if Time is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (nt *NullTime) Scan(value interface{}) error {
+	nt.Time, nt.Valid = value.(time.Time)
+	return nil
+}
+
+// Value implements the driver Valuer interface.
+func (nt NullTime) Value() (driver.Value, error) {
+	if !nt.Valid {
+		return time.Now(), nil
+	}
+	return nt.Time, nil
+}
 
 //go:embed init.sql
 var initScript string
@@ -169,24 +189,34 @@ func (log *Logger) GenerateSeed() (int64, error) {
 	return seed, nil
 }
 
-type LogParams struct {
+type LogEntry struct {
+	ParticipantId   string
 	ExecutedCommand string
 	ErrorCode       int
 	ErrorMessage    string
 	GeneratedOutput string
 	FilePath        string
+	CreatedAt       *NullTime
 }
 
-func (log *Logger) Log(params LogParams) error {
+func (log *Logger) Log(entry LogEntry) error {
+	if len(entry.ParticipantId) == 0 {
+		entry.ParticipantId = log.ParticipantId()
+	}
+
+	if entry.CreatedAt == nil || !entry.CreatedAt.Valid || entry.CreatedAt.Time.IsZero() {
+		entry.CreatedAt = &NullTime{Time: time.Now(), Valid: true}
+	}
+
 	_, err := log.db.Exec(
 		"INSERT INTO logs (participant_id, executed_command, error_code, error_message, generated_output, file_path, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-		log.ParticipantId(),
-		params.ExecutedCommand,
-		params.ErrorCode,
-		params.ErrorMessage,
-		params.GeneratedOutput,
-		params.FilePath,
-		time.Now().Format(time.RFC3339),
+		entry.ParticipantId,
+		entry.ExecutedCommand,
+		entry.ErrorCode,
+		entry.ErrorMessage,
+		entry.GeneratedOutput,
+		entry.FilePath,
+		entry.CreatedAt,
 	)
 	return err
 }

@@ -22,7 +22,7 @@ func TestLogger_Log(t *testing.T) {
 	defer log.Close()
 
 	// Test Log
-	params := logger.LogParams{
+	params := logger.LogEntry{
 		ExecutedCommand: "go test",
 		ErrorCode:       1,
 		ErrorMessage:    "Test failed",
