@@ -29,6 +29,8 @@ github.com/mattn/go-sqlite3 v1.14.16 h1:yOQRA0RpS5PFz/oikGwBEqvAWhWg5ufRz4ETLjwp
 github.com/mattn/go-sqlite3 v1.14.16/go.mod h1:2eHXhiwb8IkHr+BDWZGa96P6+rkvnG63S2DGjv9HUNg=
 github.com/nedpals/errgoengine v0.0.0-20240204172620-f4253b2cd98c h1:MofuPKky/AzH2n5asPmo+ybZB3izFwo2ZVt467QlCRQ=
 github.com/nedpals/errgoengine v0.0.0-20240204172620-f4253b2cd98c/go.mod h1:uYC7Mfw/No0v7VerEzJMPt6MdqgS6OYlkWdhan7cnz0=
+github.com/nedpals/errgoengine v0.0.0-20240310072818-9b5509fadfdf h1:59y70nCuDZPVEmZ692t9ZC/q7dvEPOIxN9HIGvrXO6s=
+github.com/nedpals/errgoengine v0.0.0-20240310072818-9b5509fadfdf/go.mod h1:uYC7Mfw/No0v7VerEzJMPt6MdqgS6OYlkWdhan7cnz0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec h1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=
