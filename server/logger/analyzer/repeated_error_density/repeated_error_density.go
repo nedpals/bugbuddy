@@ -1,4 +1,4 @@
-package repeatederrorquotient
+package repeatederrordensity
 
 import (
 	"fmt"

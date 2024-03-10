@@ -1,11 +1,11 @@
-package repeatederrorquotient_test
+package repeatederrordensity_test
 
 import (
 	"testing"
 
 	"github.com/nedpals/bugbuddy/server/logger"
 	"github.com/nedpals/bugbuddy/server/logger/analyzer"
-	red "github.com/nedpals/bugbuddy/server/logger/analyzer/repeated_error_quotient"
+	red "github.com/nedpals/bugbuddy/server/logger/analyzer/repeated_error_density"
 )
 
 // TestREDAnalyzer tests the RED Analyzer with a set of mock error events.
