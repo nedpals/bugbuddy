@@ -13,6 +13,7 @@ require (
 require (
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/mattn/go-isatty v0.0.20
+	github.com/sergi/go-diff v1.3.1
 	modernc.org/sqlite v1.28.0
 )
 
