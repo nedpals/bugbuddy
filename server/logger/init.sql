@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS logs (
     id INTEGER PRIMARY KEY,
     participant_id TEXT NOT NULL,
     executed_command TEXT NOT NULL,
-    error_code TEXT NOT NULL,
+    error_code INTEGER NOT NULL,
     error_message TEXT NOT NULL,
     generated_output TEXT NOT NULL,
     file_path TEXT NOT NULL,
