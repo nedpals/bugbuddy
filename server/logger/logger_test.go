@@ -511,6 +511,17 @@ func TestLogger_Close(t *testing.T) {
 	}
 }
 
+func TestLogger_CloseNullLogger(t *testing.T) {
+	// Create a new logger
+	var log *logger.Logger
+
+	// Close the logger
+	err := log.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestLogger_GenerateParticipantIdExistingSeed(t *testing.T) {
 	// Create a temporary database file for testing
 	dbPath := "test.db"
