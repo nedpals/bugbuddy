@@ -35,6 +35,104 @@ func TestLogger_Log(t *testing.T) {
 	}
 }
 
+func TestLogger_Entries(t *testing.T) {
+	// Create a temporary database file for testing
+	dbPath := "test.db"
+	defer os.Remove(dbPath)
+
+	// Create a new logger
+	log, err := logger.NewMemoryLogger()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer log.Close()
+
+	// Add multiple logs
+	for i := 0; i < 5; i++ {
+		params := logger.LogEntry{
+			ExecutedCommand: "go test",
+			ErrorCode:       1,
+			ErrorMessage:    "Test failed",
+			GeneratedOutput: "Some output",
+			FilePath:        fmt.Sprintf("/path/to/file%d.go", i),
+		}
+
+		err = log.Log(params)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Test Entries
+	entriesIter, err := log.Entries()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	entries, err := entriesIter.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Compare the retrieved entries with the original entries
+	if len(entries) != 5 {
+		t.Errorf("expected 5 entries, got %d", len(entries))
+	}
+}
+
+func TestLogger_EntriesByParticipantId(t *testing.T) {
+	// Create a temporary database file for testing
+	dbPath := "test.db"
+	defer os.Remove(dbPath)
+
+	// Create a new logger
+	log, err := logger.NewMemoryLogger()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer log.Close()
+
+	// Add multiple logs (first loop is the participant id and the second loop is the log entry)
+	participantIds := []string{
+		log.ParticipantId(),
+		"participant2",
+	}
+
+	for _, participantId := range participantIds {
+		for i := 0; i < 5; i++ {
+			params := logger.LogEntry{
+				ParticipantId:   participantId,
+				ExecutedCommand: "go test",
+				ErrorCode:       1,
+				ErrorMessage:    "Test failed",
+				GeneratedOutput: "Some output",
+				FilePath:        fmt.Sprintf("/path/to/file%d.go", i),
+			}
+
+			err = log.Log(params)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
+	// Test EntriesByParticipantId
+	entriesIter, err := log.EntriesByParticipantId(log.ParticipantId())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	entries, err := entriesIter.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Compare the retrieved entries with the original entries
+	if len(entries) != 5 {
+		t.Errorf("expected 5 entries, got %d", len(entries))
+	}
+}
+
 func TestLogger_AddSetting(t *testing.T) {
 	// Create a temporary database file for testing
 	dbPath := "test.db"
