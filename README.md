@@ -1,11 +1,18 @@
 > [!IMPORTANT]
-> What you are seeing here is an in-progress implementation of our thesis paper. This is not usable as of the moment and it remains unanswered if this is effective while no testing has been conducted yet.
+> What you are seeing here is an in-progress implementation of our thesis paper. While you are free to use this, it remains unanswered if this is effective while no testing has been conducted yet.
 
-# BugBuddy
-A polyglot system for monitoring, capturing, and displaying enhanced programming errors to IDEs and text editors. Powered by [ErrgoEngine](https://github.com/nedpals/errgoengine).
+<img src=".github/images/logo.png" alt="BugBuddy" style="height:auto;width:500px;">
+
+BugBuddy is a tool for making programming errors less scary and more friendly, making debugging more easy-to-learn. Powered by [ErrgoEngine](https://github.com/nedpals/errgoengine).
+
+## Features
+- Translates programming errors into human-readable messages
+- Provides a run command to execute the current file in BugBuddy
+- Supports multiple programming languages
+- Supports multiple text editors / IDEs (via Language Server Protocol)
 
 ## Usage
-To be able to capture the errors from your program, it should be run on top of BugBuddy by appending the `bugbuddy --` command:
+To use BugBuddy, a program should be running on top of it. With that, you may use the `bugbuddy --` command:
 ```bash
 # Syntax
 $ bugbuddy -- <command [ARGS]>
@@ -28,7 +35,7 @@ $ bugbuddy -- javac HelloWorld.java
 ```
 
 To be able to see the enhanced errors, a BugBuddy extension should be installed in your text editor / IDE:
-- VSCode: vscode-bugbuddy (link soon)
+- VSCode: [vscode-bugbuddy](https://marketplace.visualstudio.com/items?itemName=nedpals.bugbuddy)
 - NetBeans: nb-bugbuddy (link soon)
 
 > [!NOTE]
