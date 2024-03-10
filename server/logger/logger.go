@@ -239,6 +239,7 @@ func (it *LogEntryIterator) Next() bool {
 func (it *LogEntryIterator) Value() (LogEntry, error) {
 	var entry LogEntry
 	if err := it.rows.Scan(&entry.ParticipantId, &entry.ExecutedCommand, &entry.ErrorCode, &entry.ErrorMessage, &entry.GeneratedOutput, &entry.FilePath, &entry.CreatedAt); err != nil {
+		it.rows.Close()
 		return LogEntry{}, err
 	}
 	return entry, nil
@@ -259,6 +260,7 @@ func (it *LogEntryIterator) List() ([]LogEntry, error) {
 func (log *Logger) Entries() (*LogEntryIterator, error) {
 	rows, err := log.db.Query("SELECT participant_id, executed_command, error_code, error_message, generated_output, file_path, created_at FROM logs")
 	if err != nil {
+		defer rows.Close()
 		return nil, err
 	}
 	return &LogEntryIterator{rows: rows}, nil
@@ -267,6 +269,7 @@ func (log *Logger) Entries() (*LogEntryIterator, error) {
 func (log *Logger) EntriesByParticipantId(participantId string) (*LogEntryIterator, error) {
 	rows, err := log.db.Query("SELECT participant_id, executed_command, error_code, error_message, generated_output, file_path, created_at FROM logs WHERE participant_id = ?", participantId)
 	if err != nil {
+		defer rows.Close()
 		return nil, err
 	}
 	return &LogEntryIterator{rows: rows}, nil
