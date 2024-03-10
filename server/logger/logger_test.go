@@ -26,6 +26,7 @@ func TestLogger_Log(t *testing.T) {
 		ExecutedCommand: "go test",
 		ErrorCode:       1,
 		ErrorMessage:    "Test failed",
+		ErrorType:       "SyntaxError",
 		GeneratedOutput: "Some output",
 		FilePath:        "/path/to/file.go",
 	}
@@ -53,6 +54,7 @@ func TestLogger_Entries(t *testing.T) {
 			ExecutedCommand: "go test",
 			ErrorCode:       1,
 			ErrorMessage:    "Test failed",
+			ErrorType:       "SyntaxError",
 			GeneratedOutput: "Some output",
 			FilePath:        fmt.Sprintf("/path/to/file%d.go", i),
 		}
@@ -105,6 +107,7 @@ func TestLogger_EntriesByParticipantId(t *testing.T) {
 				ExecutedCommand: "go test",
 				ErrorCode:       1,
 				ErrorMessage:    "Test failed",
+				ErrorType:       "SyntaxError",
 				GeneratedOutput: "Some output",
 				FilePath:        fmt.Sprintf("/path/to/file%d.go", i),
 			}

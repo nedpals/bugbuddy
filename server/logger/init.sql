@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS logs (
     error_code INTEGER NOT NULL,
     error_message TEXT NOT NULL,
     generated_output TEXT NOT NULL,
+    error_type TEXT NOT NULL,
     error_line INTEGER NOT NULL,
     error_column INTEGER NOT NULL,
     file_path TEXT NOT NULL,

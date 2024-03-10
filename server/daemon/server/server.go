@@ -394,6 +394,7 @@ func (s *Server) collect(ctx context.Context, payload types.CollectPayload) (rec
 		ExecutedCommand: payload.Command,
 		ErrorCode:       payload.ErrorCode,
 		ErrorMessage:    payload.Error,
+		ErrorType:       result.Template.Name,
 		FilePath:        result.Data.MainError.Document.Path,
 		FileVersion:     result.Data.MainError.Document.Version,
 		ErrorLine:       result.Data.MainError.Nearest.StartPosition().Line,

@@ -194,6 +194,7 @@ type LogEntry struct {
 	Id              int       `db:"id,omitempty"`
 	ParticipantId   string    `db:"participant_id"`
 	ExecutedCommand string    `db:"executed_command"`
+	ErrorType       string    `db:"error_type"`
 	ErrorCode       int       `db:"error_code"`
 	ErrorMessage    string    `db:"error_message"`
 	ErrorLine       int       `db:"error_line"`
@@ -215,12 +216,12 @@ func (log *Logger) Log(entry LogEntry) error {
 
 	_, err := log.db.NamedExec(`INSERT INTO logs (
 	participant_id, executed_command, 
-	error_code, error_line, error_column, 
+	error_code, error_line, error_column, error_type,
 	error_message, generated_output, file_path, 
 	file_version, created_at
 ) VALUES (
 	:participant_id, :executed_command, 
-	:error_code, :error_line, :error_column, 
+	:error_code, :error_line, :error_column, :error_type,
 	:error_message, :generated_output, :file_path, 
 	:file_version, :created_at
 )`, &entry)
