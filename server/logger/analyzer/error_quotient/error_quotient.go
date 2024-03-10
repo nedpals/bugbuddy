@@ -1,10 +1,11 @@
-package analyzer
+package errorquotient
 
 import (
 	"fmt"
 	"strings"
 
 	"github.com/nedpals/bugbuddy/server/logger"
+	"github.com/nedpals/bugbuddy/server/logger/analyzer"
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
 
@@ -120,8 +121,8 @@ type ErrorQuotientAnalysisResult struct {
 	compilationEvents map[string][]CompilationEvent
 }
 
-type errorQuotientAnalyzer struct {
-	LoggerLoaders       []LoggerLoader
+type Analyzer struct {
+	LoggerLoaders       []analyzer.LoggerLoader
 	ErrorsByParticipant map[string]ErrorQuotientAnalysisResult
 
 	// ResultsByParticipant is a map of participantId to the error quotient
@@ -129,12 +130,12 @@ type errorQuotientAnalyzer struct {
 	ResultsByParticipant map[string]map[string]float64
 }
 
-func (e *errorQuotientAnalyzer) Load(loaders []LoggerLoader) error {
+func (e *Analyzer) Load(loaders []analyzer.LoggerLoader) error {
 	e.LoggerLoaders = loaders
 	return nil
 }
 
-func (e *errorQuotientAnalyzer) Analyze() error {
+func (e *Analyzer) Analyze() error {
 	for _, loader := range e.LoggerLoaders {
 		// Read the log file in a goroutine
 		log, err := loader()

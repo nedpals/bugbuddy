@@ -1,10 +1,11 @@
-package analyzer_test
+package errorquotient_test
 
 import (
 	"testing"
 
 	"github.com/nedpals/bugbuddy/server/logger"
 	"github.com/nedpals/bugbuddy/server/logger/analyzer"
+	errorquotient "github.com/nedpals/bugbuddy/server/logger/analyzer/error_quotient"
 )
 
 func TestErrorQuotientAnalyzer(t *testing.T) {
@@ -70,7 +71,7 @@ func TestErrorQuotientAnalyzer(t *testing.T) {
 	}
 
 	// Create a new ErrorQuotientAnalyzer
-	eqa := analyzer.New[analyzer.ErrorQuotient](analyzer.LoadFromExistingLogger(log))
+	eqa := analyzer.New[errorquotient.Analyzer](analyzer.LoadFromExistingLogger(log))
 
 	// Analyze the log
 	if err := eqa.Analyze(); err != nil {

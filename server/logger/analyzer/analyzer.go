@@ -38,6 +38,3 @@ func New[T any, PT LoggerAnalyzer[T]](loader ...LoggerLoader) PT {
 	an.Load(loader)
 	return an
 }
-
-// Re-export the analyzers
-type ErrorQuotient = errorQuotientAnalyzer
