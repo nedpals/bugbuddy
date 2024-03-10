@@ -296,13 +296,37 @@ func (log *Logger) OpenFile(filepath string) ([]byte, error) {
 	return content, err
 }
 
+func (log *Logger) OpenVersionedFile(filepath string, file_version int) ([]byte, error) {
+	var content []byte
+	// get the recent file by file_version
+	err := log.db.QueryRow(
+		"SELECT content FROM files WHERE participant_id = ? AND file_path = ? AND file_version = ?",
+		log.ParticipantId(),
+		filepath,
+		file_version).Scan(&content)
+
+	return content, err
+}
+
 func (log *Logger) WriteFile(filepath string, content []byte) error {
 	_, err := log.db.Exec(
 		"INSERT OR REPLACE INTO files (participant_id, file_path, content, created_at) VALUES (?, ?, ?, ?)",
 		log.ParticipantId(),
 		filepath,
 		content,
-		time.Now().Format(time.RFC3339),
+		time.Now(),
+	)
+	return err
+}
+
+func (log *Logger) WriteVersionedFile(filepath string, content []byte, file_version int) error {
+	_, err := log.db.Exec(
+		"INSERT INTO files (participant_id, file_path, file_version, content, created_at) VALUES (?, ?, ?, ?, ?)",
+		log.ParticipantId(),
+		filepath,
+		file_version,
+		content,
+		time.Now(),
 	)
 	return err
 }

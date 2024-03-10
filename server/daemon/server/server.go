@@ -424,7 +424,7 @@ func (s *Server) collect(ctx context.Context, payload types.CollectPayload, c *j
 
 	// write files to the logger
 	for _, file := range result.Data.Documents {
-		s.logger.WriteFile(file.Path, []byte(file.Contents))
+		s.logger.WriteVersionedFile(file.Path, []byte(file.Contents), file.Version)
 	}
 
 	return r, p, nil

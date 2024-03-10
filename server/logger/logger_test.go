@@ -260,6 +260,42 @@ func TestLogger_OpenFile(t *testing.T) {
 	}
 }
 
+func TestLogger_OpenVersionedFile(t *testing.T) {
+	// Create a temporary database file for testing
+	dbPath := "test.db"
+	defer os.Remove(dbPath)
+
+	// Create a new logger
+	log, err := logger.NewMemoryLogger()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer log.Close()
+
+	// Generate a random file path
+	filePath := "/path/to/file.go"
+
+	// Generate random file content
+	content := []byte("package main\n\nfunc main() {\n\t// Code here\n}")
+
+	// Write the file
+	err = log.WriteVersionedFile(filePath, content, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Retrieve the file content
+	retrievedContent, err := log.OpenVersionedFile(filePath, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Compare the retrieved content with the original content
+	if !bytes.Equal(content, retrievedContent) {
+		t.Errorf("expected file content to be %s, got %s", string(content), string(retrievedContent))
+	}
+}
+
 func TestLogger_WriteFile(t *testing.T) {
 	// Create a temporary database file for testing
 	dbPath := "test.db"
@@ -286,6 +322,42 @@ func TestLogger_WriteFile(t *testing.T) {
 
 	// Retrieve the file content
 	retrievedContent, err := log.OpenFile(filePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Compare the retrieved content with the original content
+	if !bytes.Equal(content, retrievedContent) {
+		t.Errorf("expected file content to be %s, got %s", string(content), string(retrievedContent))
+	}
+}
+
+func TestLogger_WriteVersionedFile(t *testing.T) {
+	// Create a temporary database file for testing
+	dbPath := "test.db"
+	defer os.Remove(dbPath)
+
+	// Create a new logger
+	log, err := logger.NewMemoryLogger()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer log.Close()
+
+	// Generate a random file path
+	filePath := "/path/to/file.go"
+
+	// Generate random file content
+	content := []byte("package main\n\nfunc main() {\n\t// Code here\n}")
+
+	// Write the file
+	err = log.WriteVersionedFile(filePath, content, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Retrieve the file content
+	retrievedContent, err := log.OpenVersionedFile(filePath, 1)
 	if err != nil {
 		t.Fatal(err)
 	}

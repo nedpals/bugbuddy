@@ -8,9 +8,11 @@ CREATE TABLE IF NOT EXISTS settings (
 CREATE TABLE IF NOT EXISTS files (
     id INTEGER PRIMARY KEY,
     participant_id TEXT NOT NULL,
-    file_path TEXT NOT NULL UNIQUE,
+    file_path TEXT NOT NULL,
+    file_version INTEGER DEFAULT 1,
     content TEXT NOT NULL,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    UNIQUE(participant_id, file_path, file_version) ON CONFLICT REPLACE
 );
 
 -- Create the logs table
