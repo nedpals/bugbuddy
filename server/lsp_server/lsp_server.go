@@ -332,6 +332,14 @@ func newDaemonClientForServer(ctx context.Context, lspServer *LspServer) *daemon
 
 			uri := uri.File(report.Location.DocumentPath)
 			if report.ErrorCode >= 1 {
+				// add indication that there were no errors detected
+				if report.Received == 0 {
+					lspServer.conn.Notify(ctx, lsp.MethodWindowShowMessage, lsp.ShowMessageParams{
+						Type:    lsp.MessageTypeError,
+						Message: "No error/s were detected.",
+					})
+				}
+
 				lspServer.unpublishedDiagnostics[uri] = []daemonTypes.ErrorReport{
 					report,
 				}
