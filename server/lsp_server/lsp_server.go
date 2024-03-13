@@ -331,13 +331,13 @@ func newDaemonClientForServer(ctx context.Context, lspServer *LspServer) *daemon
 			}
 
 			uri := uri.File(report.Location.DocumentPath)
-			if report.ErrorCode < 1 {
-				// clear the diagnostics
-				lspServer.unpublishedDiagnostics[uri] = []daemonTypes.ErrorReport{}
-			} else {
+			if report.ErrorCode >= 1 {
 				lspServer.unpublishedDiagnostics[uri] = []daemonTypes.ErrorReport{
 					report,
 				}
+			} else {
+				// clear the diagnostics
+				lspServer.unpublishedDiagnostics[uri] = []daemonTypes.ErrorReport{}
 			}
 
 			lspServer.publishChan <- len(lspServer.unpublishedDiagnostics)
