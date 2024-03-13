@@ -74,7 +74,7 @@ func Setup() (func(), *LspServer, *rpc.Client) {
 	}, lspServer, client
 }
 
-func initialize(lspServer *LspServer, client *rpc.Client) (lsp.InitializeResult, error) {
+func initialize(client *rpc.Client) (lsp.InitializeResult, error) {
 	var result lsp.InitializeResult
 	err := client.Call(lsp.MethodInitialize, nil, &result)
 	if err == nil {
@@ -87,7 +87,7 @@ func TestInitialize(t *testing.T) {
 	close, srv, client := Setup()
 	defer close()
 
-	result, err := initialize(srv, client)
+	result, err := initialize(client)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,7 +169,7 @@ func TestShutdown(t *testing.T) {
 	close, srv, client := Setup()
 	defer close()
 
-	_, err := initialize(srv, client)
+	_, err := initialize(client)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,7 +193,7 @@ func TestExit(t *testing.T) {
 	close, srv, client := Setup()
 	defer close()
 
-	_, err := initialize(srv, client)
+	_, err := initialize(client)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,7 +213,7 @@ func TestMethodTextDocumentDidOpen(t *testing.T) {
 	close, srv, client := Setup()
 	defer close()
 
-	_, err := initialize(srv, client)
+	_, err := initialize(client)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -242,7 +242,7 @@ func TestMethodTextDocumentDidOpen_UnsupportedFile(t *testing.T) {
 	close, srv, client := Setup()
 	defer close()
 
-	_, err := initialize(srv, client)
+	_, err := initialize(client)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -263,10 +263,10 @@ func TestMethodTextDocumentDidOpen_UnsupportedFile(t *testing.T) {
 }
 
 func TestMethodTextDocumentDidOpen_NoPayload(t *testing.T) {
-	close, srv, client := Setup()
+	close, _, client := Setup()
 	defer close()
 
-	_, err := initialize(srv, client)
+	_, err := initialize(client)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -278,7 +278,7 @@ func TestMethodTextDocumentDidChange(t *testing.T) {
 	close, srv, client := Setup()
 	defer close()
 
-	_, err := initialize(srv, client)
+	_, err := initialize(client)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -359,10 +359,10 @@ func TestMethodTextDocumentDidChange(t *testing.T) {
 }
 
 func TestMethodTextDocumentDidChange_NoPayload(t *testing.T) {
-	close, srv, client := Setup()
+	close, _, client := Setup()
 	defer close()
 
-	_, err := initialize(srv, client)
+	_, err := initialize(client)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -374,7 +374,7 @@ func TestMethodTextDocumentDidClose(t *testing.T) {
 	close, srv, client := Setup()
 	defer close()
 
-	_, err := initialize(srv, client)
+	_, err := initialize(client)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -418,10 +418,10 @@ func TestMethodTextDocumentDidClose(t *testing.T) {
 }
 
 func TestMethodTextDocumentDidClose_NoPayload(t *testing.T) {
-	close, srv, client := Setup()
+	close, _, client := Setup()
 	defer close()
 
-	_, err := initialize(srv, client)
+	_, err := initialize(client)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -430,10 +430,10 @@ func TestMethodTextDocumentDidClose_NoPayload(t *testing.T) {
 }
 
 func TestFetchRunCommand(t *testing.T) {
-	close, srv, client := Setup()
+	close, _, client := Setup()
 	defer close()
 
-	_, err := initialize(srv, client)
+	_, err := initialize(client)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -455,10 +455,10 @@ func TestFetchRunCommand(t *testing.T) {
 }
 
 func TestFetchRunCommand_NoPayload(t *testing.T) {
-	close, srv, client := Setup()
+	close, _, client := Setup()
 	defer close()
 
-	_, err := initialize(srv, client)
+	_, err := initialize(client)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -479,10 +479,10 @@ func TestFetchRunCommand_NoPayload(t *testing.T) {
 }
 
 func TestFetchRunCommand_InvalidLanguageId(t *testing.T) {
-	close, srv, client := Setup()
+	close, _, client := Setup()
 	defer close()
 
-	_, err := initialize(srv, client)
+	_, err := initialize(client)
 	if err != nil {
 		t.Fatal(err)
 	}
