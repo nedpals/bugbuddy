@@ -45,11 +45,19 @@ type LspServer struct {
 	documents              map[uri.URI]*types.Rope
 }
 
-func decodePayload[T any](ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) *T {
+func mustDecodePayload[T any](ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) *T {
 	if r.Params == nil {
 		c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
 			Message: "Params field is null",
 		})
+		return nil
+	}
+
+	return decodePayload[T](ctx, c, r)
+}
+
+func decodePayload[T any](ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) *T {
+	if r.Params == nil {
 		return nil
 	}
 
@@ -70,7 +78,6 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 	case lsp.MethodInitialize:
 		var dataDirPath string
 		customDaemonPort := daemon.DEFAULT_PORT
-
 		payload := decodePayload[lsp.InitializeParams](ctx, c, r)
 		if payload != nil {
 			if opts, ok := payload.InitializationOptions.(map[string]any); ok {
@@ -130,7 +137,7 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 		c.Reply(ctx, r.ID, json.RawMessage("null"))
 		return
 	case lsp.MethodTextDocumentDidOpen:
-		payload := decodePayload[lsp.DidOpenTextDocumentParams](ctx, c, r)
+		payload := mustDecodePayload[lsp.DidOpenTextDocumentParams](ctx, c, r)
 		if payload == nil {
 			return
 		}
@@ -158,7 +165,7 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 
 		s.publishChan <- len(s.unpublishedDiagnostics)
 	case lsp.MethodTextDocumentDidChange:
-		payload := decodePayload[lsp.DidChangeTextDocumentParams](ctx, c, r)
+		payload := mustDecodePayload[lsp.DidChangeTextDocumentParams](ctx, c, r)
 		if payload == nil {
 			return
 		}
@@ -182,7 +189,7 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 			text.ToString(),
 		)
 	case lsp.MethodTextDocumentDidClose:
-		payload := decodePayload[lsp.DidCloseTextDocumentParams](ctx, c, r)
+		payload := mustDecodePayload[lsp.DidCloseTextDocumentParams](ctx, c, r)
 		if payload == nil {
 			return
 		}
@@ -208,7 +215,7 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 		c.Reply(ctx, r.ID, map[string]string{"participant_id": participantId})
 		return
 	case "$/participantId/generate":
-		payload := decodePayload[GenerateParticipantIdPayload](ctx, c, r)
+		payload := mustDecodePayload[GenerateParticipantIdPayload](ctx, c, r)
 		if payload == nil {
 			return
 		}
@@ -250,7 +257,7 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 		})
 		return
 	case "$/fetchRunCommand":
-		payload := decodePayload[FetchRunCommandPayload](ctx, c, r)
+		payload := mustDecodePayload[FetchRunCommandPayload](ctx, c, r)
 		if payload == nil {
 			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
 				Code:    -32002,
@@ -285,7 +292,7 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 		return
 	case "$/setDataDir":
 		// set the data dir used by daemon
-		payload := decodePayload[daemonTypes.SetDataDirRequest](ctx, c, r)
+		payload := mustDecodePayload[daemonTypes.SetDataDirRequest](ctx, c, r)
 		if payload == nil {
 			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
 				Code:    -32002,
