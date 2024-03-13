@@ -6,7 +6,7 @@ toolchain go1.21.4
 
 require (
 	github.com/liamg/memoryfs v1.6.0
-	github.com/nedpals/errgoengine v0.0.0-20240310072818-9b5509fadfdf
+	github.com/nedpals/errgoengine v0.0.0-20240313164413-57ce740a1aac
 	go.lsp.dev/protocol v0.12.0
 )
 
