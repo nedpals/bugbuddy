@@ -372,6 +372,8 @@ func (s *Server) collect(ctx context.Context, payload types.CollectPayload) (rec
 	result := helpers.AnalyzeError(s.engine, payload.WorkingDir, payload.Error)
 	r, p, err := result.Stats()
 	s.ServerLog.Printf("collect: %d recognized, %d processed\n", r, p)
+
+	// if payload has zero error code and error message, then it is successful
 	if len(payload.Error) == 0 && payload.ErrorCode < 1 {
 		s.notifyErrors(ctx, []resultError{
 			{

@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"io/fs"
+	"strings"
 
 	eg "github.com/nedpals/errgoengine"
 	"github.com/nedpals/errgoengine/error_templates"
@@ -26,8 +27,8 @@ func DefaultEngine() *eg.ErrgoEngine {
 type AnalyzerResult struct {
 	Template *eg.CompiledErrorTemplate
 	Data     *eg.ContextData
-	Exp      string
-	Output   string
+	Exp      string // main explanation
+	Output   string // full explanation / output
 	Err      error
 }
 
@@ -39,10 +40,12 @@ func GetAnalyzerStats(template *eg.CompiledErrorTemplate, exp string, err error)
 	recognized := 0
 	processed := 0
 
+	// mark as recognized if the template is not nil and not the fallback error template
 	if template != nil && template != eg.FallbackErrorTemplate {
 		recognized++
 	}
 
+	// mark as processed if the error is nil and the exp is not empty
 	if err == nil && len(exp) > 0 {
 		processed++
 	}
@@ -64,7 +67,8 @@ func AnalyzeError(engine *eg.ErrgoEngine, workingDir string, msg string) (res An
 	res.Err = err
 
 	if err != nil {
-		if err.Error() == "template not found" {
+		// return fallback error template if there is no template found
+		if t == nil && strings.HasPrefix(err.Error(), "template not found") {
 			t = eg.FallbackErrorTemplate
 		} else {
 			return
