@@ -3,7 +3,6 @@ package executor
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -46,7 +45,9 @@ func (wr *StderrMonitor) Write(p []byte) (n int, err error) {
 	if err != nil {
 		return
 	}
-	fmt.Fprint(wr.fPrintWr, wr.buf.String())
+
+	p = append(p, '\n')
+	wr.fPrintWr.Write(p)
 	return
 }
 
