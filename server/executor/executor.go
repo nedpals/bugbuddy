@@ -3,7 +3,6 @@ package executor
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -75,7 +74,6 @@ func hasLogicalOpInCommand(cmd string) string {
 }
 
 func Execute(workingDir string, c Collector, prog string, args ...string) (int, int, error) {
-	fmt.Println("execute", prog, args)
 	sep := hasLogicalOpInCommand(prog)
 	if sep != "" {
 		commands := strings.Split(prog, sep)
