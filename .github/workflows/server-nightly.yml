@@ -20,16 +20,19 @@ jobs:
       GOOS: windows
     steps:
       - uses: actions/checkout@v3
+      - uses: goto-bus-stop/setup-zig@v2
       - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
       - working-directory: ./server
         env:
           GOARCH: amd64
+          CC: zig cc
+          CXX: zig c++
         run: |
           go version
           go mod download
-          go build -o cmd/bugbuddy_windows_amd64.exe ${{ env.ENTRYPOINT }}
+          go build -ldflags="-extldflags=-static" -o cmd/bugbuddy_windows_amd64.exe ${{ env.ENTRYPOINT }}
       - name: Create binary only artifact
         uses: actions/upload-artifact@v4
         with:
