@@ -87,13 +87,8 @@ export async function startServer() {
         await client.start();
 
         // get participant id
-        try {
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            const got = await client.sendRequest<{ participant_id: string }>('$/participantId');
-            setConnectionStatus(ConnectionStatus.connected, { participantId: got.participant_id });
-        } catch (e) {
-            setConnectionStatus(ConnectionStatus.connected, { participantId: 'unknown' });
-        }
+        const participantId = await getParticipantId();
+        setConnectionStatus(ConnectionStatus.connected, { participantId });
     } catch (e) {
         setConnectionStatus(ConnectionStatus.failed);
         window.showErrorMessage(`Failed to connect: ${e}`);
@@ -228,6 +223,15 @@ export async function showServerMenu() {
                 });
                 break;
         }
+    }
+}
+
+export async function getParticipantId() {
+    try {
+        const got = await client.sendRequest<{ participant_id: string }>('$/participantId');
+        return got.participant_id;
+    } catch (e) {
+        return 'unknown';
     }
 }
 
