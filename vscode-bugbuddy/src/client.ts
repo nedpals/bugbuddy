@@ -2,7 +2,7 @@ import { join as joinWin32 } from "path/win32";
 import { join as joinPosix } from "path/posix";
 import { homedir } from "os";
 import { ChildProcessWithoutNullStreams, spawn } from "child_process";
-import { commands, window } from "vscode";
+import { commands, env, window } from "vscode";
 import { LanguageClient, LanguageClientOptions, ServerOptions } from "vscode-languageclient/node";
 import { ConnectionStatus, extensionId, getWorkspaceConfig, openExplorerIn, outputChannel, setConnectionStatus } from "./utils";
 
@@ -222,6 +222,10 @@ export async function showServerMenu() {
                     }
                 });
                 break;
+            default:
+                if (picked?.startsWith('Participant ID: ')) {
+                    await copyParticipantId();
+                }
         }
     }
 }
@@ -242,4 +246,15 @@ export async function generateParticipantId() {
     const got = await getClient().sendRequest<{ participant_id: string }>('$/participantId/generate', { confirm: resp === 'Yes' });
     setConnectionStatus(ConnectionStatus.connected, { participantId: got.participant_id });
     window.showInformationMessage('A new participant ID has been generated.');
+}
+
+export async function copyParticipantId() {
+    const participantId = await getParticipantId();
+    if (participantId === 'unknown') {
+        // Do not continue if participant ID is unknown
+        return;
+    }
+
+    await env.clipboard.writeText(participantId);
+    window.showInformationMessage('Participant ID has been copied to clipboard.');
 }

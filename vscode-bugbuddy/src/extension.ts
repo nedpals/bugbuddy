@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { disconnectServer, generateParticipantId, setDataDirPath, showServerMenu, startServer } from './client';
+import { copyParticipantId, disconnectServer, generateParticipantId, setDataDirPath, showServerMenu, startServer } from './client';
 import { disposeTerminal, runFromUri } from './runner';
 import { getWorkspaceConfig, initializeStatusBar, setExtensionId } from './utils';
 
@@ -9,6 +9,7 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand('bugbuddy.run', runFromUri),
 		vscode.commands.registerCommand('bugbuddy.showServerMenu', showServerMenu),
         vscode.commands.registerCommand('bugbuddy.generateParticipantId', generateParticipantId),
+        vscode.commands.registerCommand('bugbuddy.copyParticipantId', copyParticipantId),
 	);
 
     // register a URI handler for the `openError` command

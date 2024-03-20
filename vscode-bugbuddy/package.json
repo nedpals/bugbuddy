@@ -28,6 +28,10 @@
         "command": "bugbuddy.run",
         "title": "BugBuddy: Run File / Project",
         "icon": "$(play)"
+      },
+      {
+        "command": "bugbuddy.copyParticipantId",
+        "title": "BugBuddy: Copy Participant ID"
       }
     ],
     "keybindings": [
