@@ -70,6 +70,12 @@ func TestRope(t *testing.T) {
 		r.Insert(15, "Invalid Insert")
 	})
 
+	t.Run("Insert on Nil Rope", func(t *testing.T) {
+		var r *Rope = nil
+
+		r.Insert(0, "Invalid Insert")
+	})
+
 	t.Run("Invalid Delete", func(t *testing.T) {
 		r := NewRope("Hello, World!")
 

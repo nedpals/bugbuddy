@@ -20,11 +20,11 @@ func NewRope(text string) *Rope {
 
 // Insert inserts text at the specified position in the rope.
 func (r *Rope) Insert(position int, text string) {
-	if position < 0 || position > len(r.text) {
+	if position < 0 || (r != nil && position > len(r.text)) {
 		panic("Invalid position")
 	}
 
-	if len(text) == 0 {
+	if r == nil || len(text) == 0 {
 		return
 	}
 
