@@ -24,6 +24,10 @@ export function getClient(): LanguageClient {
 }
 
 export function launchServer(execPath: string) {
+    if (!execPath || execPath.length == 0) {
+        return;
+    }
+
 	const proc = spawn(execPath, ["lsp"], {shell: true});
     proc.stderr.on('data', (raw: string | Buffer) => {
 		if (raw instanceof Buffer) {
@@ -48,7 +52,13 @@ export function initializeServer() {
             joinPosix(homedir(), 'bugbuddy', process.platform === 'darwin' ? 'bugbuddy_macos_universal' : 'bugbuddy_linux_amd64'));
 	console.log('Launching BugBuddy from', customPath);
 
-	serverProcess = launchServer(customPath);
+	const newServerProcess = launchServer(customPath);
+    if (!newServerProcess) {
+        // Do not continue if server process is not created
+        return;
+    }
+
+    serverProcess = newServerProcess;
 
 	const serverOpts: ServerOptions = () => Promise.resolve(serverProcess);
 	const clientOpts: LanguageClientOptions = {
@@ -69,6 +79,11 @@ export async function startServer() {
     try {
         setConnectionStatus(ConnectionStatus.connecting);
         const client = initializeServer();
+        if (!client) {
+            setConnectionStatus(ConnectionStatus.disconnected);
+            return;
+        }
+
         await client.start();
 
         // get participant id
