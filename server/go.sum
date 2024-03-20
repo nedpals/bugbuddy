@@ -40,10 +40,6 @@ github.com/mattn/go-isatty v0.0.20/go.mod h1:W+V8PltTTMOvKvAeJH7IuucS94S2C6jfK/D
 github.com/mattn/go-sqlite3 v1.14.6/go.mod h1:NyWgC/yNuGj7Q9rpYnZvas74GogHl5/Z4A/KQRfk6bU=
 github.com/mattn/go-sqlite3 v1.14.16 h1:yOQRA0RpS5PFz/oikGwBEqvAWhWg5ufRz4ETLjwpU1Y=
 github.com/mattn/go-sqlite3 v1.14.16/go.mod h1:2eHXhiwb8IkHr+BDWZGa96P6+rkvnG63S2DGjv9HUNg=
-github.com/nedpals/errgoengine v0.0.0-20240310072818-9b5509fadfdf h1:59y70nCuDZPVEmZ692t9ZC/q7dvEPOIxN9HIGvrXO6s=
-github.com/nedpals/errgoengine v0.0.0-20240310072818-9b5509fadfdf/go.mod h1:uYC7Mfw/No0v7VerEzJMPt6MdqgS6OYlkWdhan7cnz0=
-github.com/nedpals/errgoengine v0.0.0-20240313164413-57ce740a1aac h1:SGmIhk55TLIDI1PrQUwPGDrdFRLaQ0Ve68Gpx3HBl2Y=
-github.com/nedpals/errgoengine v0.0.0-20240313164413-57ce740a1aac/go.mod h1:uYC7Mfw/No0v7VerEzJMPt6MdqgS6OYlkWdhan7cnz0=
 github.com/nedpals/errgoengine v0.0.0-20240314002515-5f2d3102ac97 h1:gMdSQbnVqvN+Gh68ofmmvs5bsF2ThvE40uvECE2/SUQ=
 github.com/nedpals/errgoengine v0.0.0-20240314002515-5f2d3102ac97/go.mod h1:uYC7Mfw/No0v7VerEzJMPt6MdqgS6OYlkWdhan7cnz0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
