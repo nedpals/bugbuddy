@@ -5,6 +5,7 @@ on:
     branches:
       - master
     paths:
+      - '.github/workflows/vscode-nightly.yml'
       - 'vscode-bugbuddy/**'
 
 jobs:
