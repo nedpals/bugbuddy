@@ -47,6 +47,17 @@ func TestRope(t *testing.T) {
 		}
 	})
 
+	t.Run("ToString Nil Rope", func(t *testing.T) {
+		var r *Rope = nil
+
+		expected := ""
+		result := r.ToString()
+
+		if result != expected {
+			t.Errorf("Expected: %s, Got: %s", expected, result)
+		}
+	})
+
 	t.Run("Invalid Insert", func(t *testing.T) {
 		r := NewRope("Hello, World!")
 

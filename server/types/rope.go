@@ -79,6 +79,10 @@ func (r *Rope) Delete(position, length int) {
 
 // ToString returns the string representation of the rope.
 func (r *Rope) ToString() string {
+	if r == nil {
+		return ""
+	}
+
 	if r.left == nil && r.right == nil {
 		return r.text
 	}
