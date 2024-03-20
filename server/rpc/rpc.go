@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net"
+	"strings"
 
 	"github.com/sourcegraph/jsonrpc2"
 )
@@ -37,6 +38,13 @@ func (conn *CustomStream) Close() error {
 }
 
 func StartServer(addr string, codec jsonrpc2.ObjectCodec, h jsonrpc2.Handler) error {
+	if strings.HasPrefix(addr, ":") {
+		// Prepend 127.0.0.1 to the address. This is for us to be able to
+		// run the server without firewall prompts. (for Windows)
+		// https://stackoverflow.com/a/66486551
+		addr = "127.0.0.1" + addr
+	}
+
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
 		return err

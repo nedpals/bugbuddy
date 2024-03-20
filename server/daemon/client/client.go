@@ -118,6 +118,11 @@ func (c *Client) Connect() error {
 	}
 
 	if c.tcpConn == nil {
+		if strings.HasPrefix(c.addr, ":") {
+			// See rpc.StartServer for a similar comment
+			c.addr = "127.0.0.1" + c.addr
+		}
+
 		conn, err := net.Dial("tcp", c.addr)
 		if err != nil {
 			if err, ok := err.(*net.OpError); ok {
