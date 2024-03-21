@@ -9,19 +9,22 @@ export function setExtensionId(id: string) {
 	extensionId = id;
 }
 
-export function getWorkspaceFolder(uri?: Uri): WorkspaceFolder {
+export function getWorkspaceFolder(uri?: Uri): WorkspaceFolder | null {
 	if (uri) {
 		return workspace.getWorkspaceFolder(uri)!;
 	} else if (window.activeTextEditor && window.activeTextEditor.document) {
 		return workspace.getWorkspaceFolder(window.activeTextEditor.document.uri)!;
-	} else {
-		return workspace.workspaceFolders![0];
+	} else if (workspace.workspaceFolders && workspace.workspaceFolders.length > 0) {
+		return workspace.workspaceFolders[0];
 	}
+	return null;
 }
 
 export function getWorkspaceConfig(): WorkspaceConfiguration {
 	const workspaceFolder = getWorkspaceFolder();
-	return workspace.getConfiguration(shortExtensionId, workspaceFolder.uri);
+	return workspace.getConfiguration(
+		shortExtensionId, 
+		workspaceFolder ? workspaceFolder.uri : null);
 }
 
 // Logging
