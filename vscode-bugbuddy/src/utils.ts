@@ -50,6 +50,7 @@ export enum ConnectionStatus {
 	connecting,
 	connected,
 	failed,
+	disabled,
 }
 
 function connStatusToText(status: ConnectionStatus): string {
@@ -62,11 +63,14 @@ function connStatusToText(status: ConnectionStatus): string {
 			return 'Connected';
 		case ConnectionStatus.failed:
 			return 'Connection Failed';
+		case ConnectionStatus.disabled:
+			return 'Disabled';
 	}
 }
 
 function connStatusToIcon(status: ConnectionStatus): string {
 	switch (status) {
+		case ConnectionStatus.disabled:
 		case ConnectionStatus.disconnected:
 			return '$(circle-slash)';
 		case ConnectionStatus.connecting:

@@ -64,6 +64,7 @@ function showServerLaunchError(kind: BugBuddyServerLaunchErrorKind, path: string
     }
 
     if (errorMessage.length != 0) {
+        setConnectionStatus(ConnectionStatus.disabled);
         window.showErrorMessage(errorMessage);
         console.error(errorMessage);
     }
