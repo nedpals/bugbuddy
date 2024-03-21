@@ -4,9 +4,10 @@ import { homedir } from "os";
 import { ChildProcessWithoutNullStreams, spawn } from "child_process";
 import { commands, env, window } from "vscode";
 import { LanguageClient, LanguageClientOptions, ServerOptions } from "vscode-languageclient/node";
-import { ConnectionStatus, extensionId, getWorkspaceConfig, openExplorerIn, outputChannel, setConnectionStatus } from "./utils";
+import { ConnectionStatus, extensionId, getWorkspaceConfig, openExplorerIn, outputChannel, setConnectionStatusTray } from "./utils";
 import { existsSync, lstatSync } from "fs";
 
+export let currentConnectionStatus = ConnectionStatus.disconnected;
 let serverProcess: ChildProcessWithoutNullStreams;
 let client: LanguageClient;
 
@@ -312,4 +313,9 @@ export async function copyParticipantId() {
 
     await env.clipboard.writeText(participantId);
     window.showInformationMessage('Participant ID has been copied to clipboard.');
+}
+
+export function setConnectionStatus(status: ConnectionStatus, opts?: { participantId: string }) {
+    currentConnectionStatus = status;
+    setConnectionStatusTray(status, opts);
 }

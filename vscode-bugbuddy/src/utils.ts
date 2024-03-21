@@ -1,6 +1,7 @@
 import { spawn } from "child_process";
 import { platform } from "os";
 import { StatusBarAlignment, ThemeColor, Uri, WorkspaceConfiguration, WorkspaceFolder, window, workspace } from "vscode";
+import { setConnectionStatus } from "./client";
 
 const shortExtensionId = 'bugbuddy';
 export let extensionId = '';
@@ -79,7 +80,7 @@ function connStatusToIcon(status: ConnectionStatus): string {
 
 export const statusBar = window.createStatusBarItem('bugbuddy', StatusBarAlignment.Right, 1000);
 
-export function setConnectionStatus(status: ConnectionStatus, opts?: { participantId: string | null }) {
+export function setConnectionStatusTray(status: ConnectionStatus, opts?: { participantId: string | null }) {
 	const icon = connStatusToIcon(status);
 	let text = connStatusToText(status);
 	if (status === ConnectionStatus.connected && opts?.participantId) {
