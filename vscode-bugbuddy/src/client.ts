@@ -210,6 +210,10 @@ export async function disconnectServer() {
 }
 
 export function isServerConnected() {
+    if (currentConnectionStatus === ConnectionStatus.disabled) {
+        return false;
+    }
+
     const client = getClient();
     if (!client) {
         return false;
@@ -231,12 +235,16 @@ interface ServerStats {
 }
 
 export async function showServerMenu() {
+    if (!isServerConnected()) {
+        throw new ClientError('Please open a folder first to be able to access BugBuddy.');
+    }
+
     let stats: ServerStats | null = null;
     const client = getClient();
 
     try {
         if (client.needsStart()) {
-            throw new ClientError('BugBuddy LSP client not initialized.');
+            throw new ClientError('BugBuddy server is not connected. Please connect to the server first.');
         }
 
         stats = await client.sendRequest<ServerStats>('$/status');
