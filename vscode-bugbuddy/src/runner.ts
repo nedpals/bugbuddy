@@ -36,6 +36,11 @@ export async function runDocument(doc: TextDocument) {
         throw new Error('Cannot run this file.');
     }
 
+    if (terminal && typeof terminal.exitStatus !== 'undefined' && typeof terminal.exitStatus.code === 'undefined') {
+        // destroy existing terminal instance if it was closed
+        terminal = null;
+    }
+
     if (!terminal) {
         // look for existing terminal before creating a new one
         // this is to prevent creating multiple terminals
