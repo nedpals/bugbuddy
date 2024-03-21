@@ -5,6 +5,7 @@ import { ChildProcessWithoutNullStreams, spawn } from "child_process";
 import { commands, env, window } from "vscode";
 import { LanguageClient, LanguageClientOptions, ServerOptions } from "vscode-languageclient/node";
 import { ConnectionStatus, extensionId, getWorkspaceConfig, openExplorerIn, outputChannel, setConnectionStatus } from "./utils";
+import { existsSync, lstatSync } from "fs";
 
 let serverProcess: ChildProcessWithoutNullStreams;
 let client: LanguageClient;
@@ -39,6 +40,34 @@ export function launchServer(execPath: string) {
     return proc;
 }
 
+enum BugBuddyServerLaunchErrorKind {
+    None = 0,
+    PathNotFound = 1,
+    PermissionDenied = 2,
+    IsDirectory = 3,
+}
+
+function showServerLaunchError(kind: BugBuddyServerLaunchErrorKind, path: string) {
+    let errorMessage = '';
+
+    switch (kind) {
+        case BugBuddyServerLaunchErrorKind.PathNotFound:
+            errorMessage = `BugBuddy server path not found: ${path}`;
+            break;
+        case BugBuddyServerLaunchErrorKind.PermissionDenied:
+            errorMessage = `Permission denied to launch BugBuddy server: ${path}`;
+            break;
+        case BugBuddyServerLaunchErrorKind.IsDirectory:
+            errorMessage = `BugBuddy server path is a directory: ${path}`;
+            break;
+    }
+
+    if (errorMessage.length != 0) {
+        window.showErrorMessage(errorMessage);
+        console.error(errorMessage);
+    }
+}
+
 export function initializeServer() {
     if (client && client.needsStop()) {
         // do not reinitialize the client if it's already running
@@ -46,11 +75,37 @@ export function initializeServer() {
         return client;
     }
 
-    const customPath = getWorkspaceConfig().get<string>('path',
-        process.platform === 'win32' ?
-            joinWin32('C:', 'bugbuddy', 'bugbuddy_windows_amd64.exe') :
-            joinPosix(homedir(), 'bugbuddy', process.platform === 'darwin' ? 'bugbuddy_macos_universal' : 'bugbuddy_linux_amd64'));
+    let customPath = getWorkspaceConfig().get<string>('path', '');
+    if (!customPath || customPath.length === 0) {
+        switch (process.platform) {
+        case 'win32':
+            customPath = joinWin32('C:', 'bugbuddy', 'bugbuddy_windows_amd64.exe');
+            break;
+        case 'darwin':
+            customPath = joinPosix(homedir(), 'bugbuddy', 'bugbuddy_macos_universal');
+            break;
+        case 'linux':
+            customPath = joinPosix(homedir(), 'bugbuddy', 'bugbuddy_linux_amd64');
+            break;
+        }
+    }
+    
+    // check if path exists
 	console.log('Launching BugBuddy from', customPath);
+    
+    if (!existsSync(customPath)) {
+        showServerLaunchError(BugBuddyServerLaunchErrorKind.PathNotFound, customPath);
+        return;
+    }
+
+    const customPathStat = lstatSync(customPath);
+    if (customPathStat.isDirectory()) {
+        showServerLaunchError(BugBuddyServerLaunchErrorKind.IsDirectory, customPath);
+        return;
+    } else if (!(customPathStat.mode & 0o100)) {
+        showServerLaunchError(BugBuddyServerLaunchErrorKind.PermissionDenied, customPath);
+        return;
+    }
 
 	const newServerProcess = launchServer(customPath);
     if (!newServerProcess) {
