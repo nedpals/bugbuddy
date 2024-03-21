@@ -126,7 +126,8 @@ func (c *Client) Connect() error {
 		conn, err := net.Dial("tcp", c.addr)
 		if err != nil {
 			if err, ok := err.(*net.OpError); ok {
-				if strings.HasSuffix(err.Err.Error(), "connection refused") {
+				msg := err.Err.Error()
+				if strings.HasSuffix(msg, "connection refused") || strings.HasSuffix(msg, "No connection could be made because the target machine actively refused it.") {
 					return c.tryReconnect(err)
 				}
 			}
