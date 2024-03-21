@@ -6,6 +6,7 @@ import { commands, env, window } from "vscode";
 import { LanguageClient, LanguageClientOptions, ServerOptions } from "vscode-languageclient/node";
 import { ConnectionStatus, extensionId, getWorkspaceConfig, openExplorerIn, outputChannel, setConnectionStatusTray } from "./utils";
 import { existsSync, lstatSync } from "fs";
+import { normalize } from "path";
 
 export let currentConnectionStatus = ConnectionStatus.disconnected;
 let serverProcess: ChildProcessWithoutNullStreams;
@@ -94,10 +95,19 @@ export function initializeServer() {
     
     // check if path exists
 	console.log('Launching BugBuddy from', customPath);
-    
-    if (!existsSync(customPath)) {
-        showServerLaunchError(BugBuddyServerLaunchErrorKind.PathNotFound, customPath);
-        return;
+
+    if (customPath.length !== 0) {
+        customPath = normalize(customPath)
+        
+        let customPathStripped = customPath;
+        if (customPath.startsWith('"') && customPath.endsWith('"')) {
+            customPathStripped = customPath.slice(1, -1);
+        }
+
+        if (!existsSync(customPathStripped)) {
+            showServerLaunchError(BugBuddyServerLaunchErrorKind.PathNotFound, customPath);
+            return;
+        }
     }
 
     const customPathStat = lstatSync(customPath);
@@ -105,8 +115,8 @@ export function initializeServer() {
         showServerLaunchError(BugBuddyServerLaunchErrorKind.IsDirectory, customPath);
         return;
     } else if (!(customPathStat.mode & 0o100)) {
-        showServerLaunchError(BugBuddyServerLaunchErrorKind.PermissionDenied, customPath);
-        return;
+        // showServerLaunchError(BugBuddyServerLaunchErrorKind.PermissionDenied, customPath);
+        // return;
     }
 
 	const newServerProcess = launchServer(customPath);
