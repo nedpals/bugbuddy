@@ -37,7 +37,18 @@ export async function runDocument(doc: TextDocument) {
     }
 
     if (!terminal) {
-        terminal = window.createTerminal('BugBuddy');
+        // look for existing terminal before creating a new one
+        // this is to prevent creating multiple terminals
+        window.terminals.forEach((t) => {
+            if (t.name === 'BugBuddy' && t.exitStatus === undefined) {
+                terminal = t;
+            }
+        });
+
+        // if no terminal found, create a new one
+        if (!terminal) {
+            terminal = window.createTerminal('BugBuddy');
+        }
     }
 
     terminal.show();
