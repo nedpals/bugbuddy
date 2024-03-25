@@ -63,7 +63,14 @@ func NewMemoryLoggerPanic() *Logger {
 }
 
 func NewLogger() (*Logger, error) {
-	return NewLoggerFromPath("logs.db")
+	// get or initialize directory
+	dirPath, err := helpers.GetOrInitializeDataDir()
+	if err != nil {
+		return nil, err
+	}
+
+	logsDbPath := filepath.Join(dirPath, "logs.db")
+	return NewLoggerFromPath(logsDbPath)
 }
 
 func NewLoggerPanic() *Logger {
@@ -75,14 +82,16 @@ func NewLoggerPanic() *Logger {
 }
 
 func NewLoggerFromPath(path string) (*Logger, error) {
-	// get or initialize directory
-	dirPath, err := helpers.GetOrInitializeDataDir()
-	if err != nil {
-		return nil, err
+	if !filepath.IsAbs(path) {
+		rPath, err := filepath.Abs(path)
+		if err != nil {
+			return nil, err
+		}
+
+		path = rPath
 	}
 
-	logsDbPath := filepath.Join(dirPath, path)
-	return setupLogger(logsDbPath)
+	return setupLogger(path)
 }
 
 func NewLoggerFromPathPanic(path string) *Logger {
