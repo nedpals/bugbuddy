@@ -419,8 +419,6 @@ func (s *Server) collect(ctx context.Context, payload types.CollectPayload) (rec
 		_, pathFromArgs := runner.GetIdAndPathFromCommand(payload.Command)
 
 		if len(pathFromArgs) > 0 {
-			s.ServerLog.Println("extracted path from command:", pathFromArgs)
-
 			if !filepath.IsAbs(pathFromArgs) {
 				pathFromArgs = filepath.Join(payload.WorkingDir, pathFromArgs)
 			}
@@ -440,6 +438,10 @@ func (s *Server) collect(ctx context.Context, payload types.CollectPayload) (rec
 						logPayload.FileVersion = maxVersion
 					}
 				}
+			} else if maxVersion, _ := s.logger.LatestVersionFromFile(pathFromArgs); maxVersion >= 0 {
+				// ... just get the latest version
+				logPayload.FilePath = pathFromArgs
+				logPayload.FileVersion = maxVersion
 			}
 		}
 	}
