@@ -213,9 +213,6 @@ func (e *Analyzer) Analyze() error {
 				compilationEvents: compilationEvents,
 			}
 		}
-
-		// close the log
-		log.Close()
 	}
 
 	for participantId, result := range e.ErrorsByParticipant {
