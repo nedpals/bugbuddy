@@ -238,11 +238,16 @@ var analyzeLogCmd = &cobra.Command{
 					log.Fatalln("only .db files are supported")
 				}
 
+				realPath, err := filepath.Abs(match)
+				if err != nil {
+					log.Fatalln(err)
+				}
+
 				loggerLoaders = append(loggerLoaders, func() (*logger.Logger, error) {
-					return logger.NewLoggerFromPath(match)
+					return logger.NewLoggerFromPath(realPath)
 				})
 
-				log.Println("loaded", match)
+				log.Println("loaded", realPath)
 			}
 		}
 
@@ -252,65 +257,80 @@ var analyzeLogCmd = &cobra.Command{
 		// map[analyzer]map[participantId]map[filePath]struct{FilePath string, ErrorQuotient float64, RepeatedErrorDensity float64, TimeToSolve time.Duration}
 		results := map[string]map[string]*analyzeResults{}
 
-		for _, analyzer := range analyzers {
-			switch analyzer {
-			case "eq":
-				eqa := log_analyzer.New[errorquotient.Analyzer](loggerLoaders...)
-				if err := eqa.Analyze(); err != nil {
-					log.Fatalln(err)
-				}
+		for _, lgLoader := range loggerLoaders {
+			lg, err := lgLoader()
+			if err != nil {
+				log.Fatalln(err)
+			}
 
-				for participantId, filePaths := range eqa.ResultsByParticipant {
-					if _, ok := results[participantId]; !ok {
-						results[participantId] = map[string]*analyzeResults{}
+			loader := func() (*logger.Logger, error) {
+				return lg, nil
+			}
+
+			for _, analyzer := range analyzers {
+				switch analyzer {
+				case "eq":
+					eqa := log_analyzer.New[errorquotient.Analyzer](loader)
+					if err := eqa.Analyze(); err != nil {
+						log.Fatalln(err)
 					}
 
-					for filePath, eq := range filePaths {
-						if _, ok := results[participantId][filePath]; !ok {
-							results[participantId][filePath] = &analyzeResults{FilePath: filePath}
+					for participantId, filePaths := range eqa.ResultsByParticipant {
+						if _, ok := results[participantId]; !ok {
+							results[participantId] = map[string]*analyzeResults{}
 						}
 
-						results[participantId][filePath].ErrorQuotient = eq
-					}
-				}
-			case "red":
-				red := log_analyzer.New[red.Analyzer](loggerLoaders...)
-				if err := red.Analyze(); err != nil {
-					log.Fatalln(err)
-				}
+						for filePath, eq := range filePaths {
+							if _, ok := results[participantId][filePath]; !ok {
+								results[participantId][filePath] = &analyzeResults{FilePath: filePath}
+							}
 
-				for participantId, filePaths := range red.ResultsByParticipant {
-					if _, ok := results[participantId]; !ok {
-						results[participantId] = map[string]*analyzeResults{}
+							results[participantId][filePath].ErrorQuotient = eq
+						}
+					}
+				case "red":
+					red := log_analyzer.New[red.Analyzer](loader)
+					if err := red.Analyze(); err != nil {
+						log.Fatalln(err)
 					}
 
-					for filePath, red := range filePaths {
-						if _, ok := results[participantId][filePath]; !ok {
-							results[participantId][filePath] = &analyzeResults{FilePath: filePath}
+					for participantId, filePaths := range red.ResultsByParticipant {
+						if _, ok := results[participantId]; !ok {
+							results[participantId] = map[string]*analyzeResults{}
 						}
 
-						results[participantId][filePath].RepeatedErrorDensity = red
-					}
-				}
-			case "tts":
-				tts := log_analyzer.New[timetosolve.Analyzer](loggerLoaders...)
-				if err := tts.Analyze(); err != nil {
-					log.Fatalln(err)
-				}
+						for filePath, red := range filePaths {
+							if _, ok := results[participantId][filePath]; !ok {
+								results[participantId][filePath] = &analyzeResults{FilePath: filePath}
+							}
 
-				for participantId, filePaths := range tts.ResultsByParticipant {
-					if _, ok := results[participantId]; !ok {
-						results[participantId] = map[string]*analyzeResults{}
+							results[participantId][filePath].RepeatedErrorDensity = red
+						}
+					}
+				case "tts":
+					tts := log_analyzer.New[timetosolve.Analyzer](loader)
+					if err := tts.Analyze(); err != nil {
+						log.Fatalln(err)
 					}
 
-					for filePath, tts := range filePaths {
-						if _, ok := results[participantId][filePath]; !ok {
-							results[participantId][filePath] = &analyzeResults{FilePath: filePath}
+					for participantId, filePaths := range tts.ResultsByParticipant {
+						if _, ok := results[participantId]; !ok {
+							results[participantId] = map[string]*analyzeResults{}
 						}
 
-						results[participantId][filePath].TimeToSolve = tts
+						for filePath, tts := range filePaths {
+							if _, ok := results[participantId][filePath]; !ok {
+								results[participantId][filePath] = &analyzeResults{FilePath: filePath}
+							}
+
+							results[participantId][filePath].TimeToSolve = tts
+						}
 					}
 				}
+			}
+
+			if err := lg.Close(); err != nil {
+				log.Fatalln(err)
 			}
 		}
 
