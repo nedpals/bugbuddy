@@ -3,6 +3,7 @@ package logger
 import (
 	"database/sql"
 	"database/sql/driver"
+	"fmt"
 	"math/rand"
 	"path/filepath"
 	"strconv"
@@ -341,7 +342,32 @@ func (log *Logger) WriteFile(filepath string, content []byte) error {
 	return err
 }
 
+func (log *Logger) LatestVersionFromFile(filepath string) (int, error) {
+	// get latest file version
+	var maxVersion int
+
+	err := log.db.QueryRow(
+		"SELECT MAX(file_version) FROM files WHERE participant_id = ? AND file_path = ?",
+		log.ParticipantId(),
+		filepath,
+	).Scan(&maxVersion)
+	if err != nil {
+		return -1, fmt.Errorf("we cannot get the latest file version: %w", err)
+	}
+
+	return maxVersion, nil
+}
+
 func (log *Logger) WriteVersionedFile(filepath string, content []byte, file_version int) error {
+	if file_version < 0 {
+		maxVersion, err := log.LatestVersionFromFile(filepath)
+		if err != nil {
+			return err
+		}
+
+		file_version = maxVersion + 1
+	}
+
 	_, err := log.db.Exec(
 		"INSERT INTO files (participant_id, file_path, file_version, content, created_at) VALUES (?, ?, ?, ?, ?)",
 		log.ParticipantId(),

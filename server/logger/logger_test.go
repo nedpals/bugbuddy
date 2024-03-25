@@ -369,6 +369,23 @@ func TestLogger_WriteVersionedFile(t *testing.T) {
 	if !bytes.Equal(content, retrievedContent) {
 		t.Errorf("expected file content to be %s, got %s", string(content), string(retrievedContent))
 	}
+
+	// Write the file again but with negative file version
+	err = log.WriteVersionedFile(filePath, content, -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Retrieve the file content
+	retrievedContent, err = log.OpenVersionedFile(filePath, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Compare the retrieved content with the original content
+	if !bytes.Equal(content, retrievedContent) {
+		t.Errorf("expected file content to be %s, got %s", string(content), string(retrievedContent))
+	}
 }
 
 func TestLogger_RenameFile(t *testing.T) {
