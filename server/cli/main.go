@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -212,12 +213,31 @@ type analyzeResults struct {
 	TimeToSolve          time.Duration
 }
 
+var validAnalyzerMetrics = []string{"eq", "red", "tts"}
+
 var analyzeLogCmd = &cobra.Command{
 	Use:   "analyze-log",
 	Short: "Analyzes a set of log files. The results will be saved to an excel file.",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		analyzers, _ := cmd.Flags().GetStringSlice("metrics")
+		for _, analyzer := range analyzers {
+			valid := false
+
+			for _, validAnalyzer := range validAnalyzerMetrics {
+				if analyzer == validAnalyzer {
+					valid = true
+					break
+				}
+			}
+
+			if !valid {
+				return fmt.Errorf("invalid analyzer: %s. only %s were allowed", analyzer, strings.Join(validAnalyzerMetrics, ", "))
+			}
+		}
+
 		loggerLoaders := []log_analyzer.LoggerLoader{}
+		outputPath, _ := cmd.Flags().GetString("output")
 
 		for _, path := range args {
 			matches, err := filepath.Glob(path)
@@ -250,9 +270,6 @@ var analyzeLogCmd = &cobra.Command{
 				log.Println("loaded", realPath)
 			}
 		}
-
-		// TODO: set as configurable flags
-		analyzers := []string{"eq", "red", "tts"}
 
 		// map[analyzer]map[participantId]map[filePath]struct{FilePath string, ErrorQuotient float64, RepeatedErrorDensity float64, TimeToSolve time.Duration}
 		results := map[string]map[string]*analyzeResults{}
@@ -346,21 +363,38 @@ var analyzeLogCmd = &cobra.Command{
 			// write the header
 			row := sheet.AddRow()
 			row.AddCell().SetValue("File Path")
-			row.AddCell().SetValue("Error Quotient")
-			row.AddCell().SetValue("Repeated Error Density")
-			row.AddCell().SetValue("Time To Solve")
+
+			if slices.Contains(analyzers, "eq") {
+				row.AddCell().SetValue("Error Quotient")
+			}
+
+			if slices.Contains(analyzers, "red") {
+				row.AddCell().SetValue("Repeated Error Density")
+			}
+
+			if slices.Contains(analyzers, "tts") {
+				row.AddCell().SetValue("Time To Solve")
+			}
 
 			for _, result := range filePaths {
 				row = sheet.AddRow()
 				row.AddCell().SetValue(result.FilePath)
-				row.AddCell().SetValue(result.ErrorQuotient)
-				row.AddCell().SetValue(result.RepeatedErrorDensity)
-				row.AddCell().SetValue(result.TimeToSolve.String())
+
+				if slices.Contains(analyzers, "eq") {
+					row.AddCell().SetValue(result.ErrorQuotient)
+				}
+
+				if slices.Contains(analyzers, "red") {
+					row.AddCell().SetValue(result.RepeatedErrorDensity)
+				}
+
+				if slices.Contains(analyzers, "tts") {
+					row.AddCell().SetValue(result.TimeToSolve.String())
+				}
 			}
 		}
 
-		// TODO: set as configurable flag
-		if err := wb.Save("results.xlsx"); err != nil {
+		if err := wb.Save(outputPath); err != nil {
 			log.Fatalln(err)
 		}
 
@@ -380,6 +414,8 @@ func init() {
 	rootCmd.PersistentFlags().IntP("port", "p", daemon.DEFAULT_PORT, "the port to use for the daemon")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "enable verbose mode")
 	daemonCmd.PersistentFlags().String("data-dir", "", "the directory to use for the daemon. To override the default directory, set the BUGBUDDY_DIR environment variable.")
+	analyzeLogCmd.PersistentFlags().StringP("output", "o", "results.xlsx", "the output file to save the results")
+	analyzeLogCmd.PersistentFlags().StringSliceP("metrics", "m", []string{"eq", "red", "tts"}, "the analyzers to use")
 }
 
 func main() {
