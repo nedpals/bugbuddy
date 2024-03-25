@@ -144,7 +144,7 @@ func Execute(workingDir string, c Collector, prog string, args ...string) (int, 
 		errProcessor.Flush()
 	} else if errProcessor.exitCode == 0 {
 		// collect immediately
-		_, _, _ = errProcessor.collector.Collect(errProcessor.exitCode, strings.Join(errProcessor.args, ""), errProcessor.workingDir, "")
+		_, _, _ = errProcessor.collector.Collect(errProcessor.exitCode, strings.Join(errProcessor.args, " "), errProcessor.workingDir, "")
 	}
 
 	return errProcessor.numErrors, errProcessor.exitCode, nil
