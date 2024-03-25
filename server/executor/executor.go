@@ -27,7 +27,7 @@ func (wr *StderrMonitor) Flush() {
 	}
 
 	str := wr.buf.String()
-	r, _, _ := wr.collector.Collect(wr.exitCode, strings.Join(wr.args, ""), wr.workingDir, str)
+	r, _, _ := wr.collector.Collect(wr.exitCode, strings.Join(wr.args, " "), wr.workingDir, str)
 	wr.numErrors += r
 	if r > 0 {
 		wr.buf.Reset()
