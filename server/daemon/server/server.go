@@ -373,34 +373,10 @@ func (s *Server) collect(ctx context.Context, payload types.CollectPayload) (rec
 	r, p, err := result.Stats()
 	s.ServerLog.Printf("collect: %d recognized, %d processed\n", r, p)
 
-	// if payload has zero error code and error message, then it is successful
-	if len(payload.Error) == 0 && payload.ErrorCode < 1 {
-		s.notifyErrors(ctx, []resultError{
-			{
-				report: &types.ErrorReport{
-					Message:       result.Exp,
-					ErrorCode:     payload.ErrorCode,
-					Received:      r,
-					Processed:     p,
-					AnalyzerError: "",
-				},
-			},
-		})
-	}
-
-	if err != nil {
-		return r, p, err
-	}
-
 	logPayload := logger.LogEntry{
 		ExecutedCommand: payload.Command,
 		ErrorCode:       payload.ErrorCode,
 		ErrorMessage:    payload.Error,
-		ErrorType:       result.Template.Name,
-		FilePath:        result.Data.MainError.Document.Path,
-		FileVersion:     result.Data.MainError.Document.Version,
-		ErrorLine:       result.Data.MainError.Nearest.StartPosition().Line,
-		ErrorColumn:     result.Data.MainError.Nearest.StartPosition().Column,
 		GeneratedOutput: result.Output,
 	}
 
@@ -413,14 +389,27 @@ func (s *Server) collect(ctx context.Context, payload types.CollectPayload) (rec
 		report: &types.ErrorReport{
 			FullMessage:   result.Output,
 			Message:       result.Exp,
-			Template:      result.Template.Name,
-			Language:      result.Template.Language.Name,
-			Location:      result.Data.MainError.Nearest.Location(),
 			ErrorCode:     payload.ErrorCode,
 			Received:      r,
 			Processed:     p,
 			AnalyzerError: analyzerError,
 		},
+	}
+
+	if result.Template != nil && result.Template != errgoengine.FallbackErrorTemplate {
+		logPayload.ErrorType = result.Template.Name
+
+		report.report.Template = result.Template.Name
+		report.report.Language = result.Template.Language.Name
+	}
+
+	if result.Data.MainError != nil {
+		logPayload.ErrorLine = result.Data.MainError.Nearest.StartPosition().Line
+		logPayload.ErrorColumn = result.Data.MainError.Nearest.StartPosition().Column
+		logPayload.FileVersion = result.Data.MainError.Document.Version
+		logPayload.FilePath = result.Data.MainError.Document.Path
+
+		report.report.Location = result.Data.MainError.Nearest.Location()
 	}
 
 	s.logger.Log(logPayload)
