@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/nedpals/bugbuddy/server/logger"
 	"github.com/nedpals/bugbuddy/server/release"
 	"github.com/nedpals/bugbuddy/server/rpc"
+	"github.com/nedpals/bugbuddy/server/runner"
 	"github.com/nedpals/errgoengine"
 	"github.com/nedpals/errgoengine/error_templates"
 	"github.com/nedpals/errgoengine/languages"
@@ -410,6 +412,36 @@ func (s *Server) collect(ctx context.Context, payload types.CollectPayload) (rec
 		logPayload.FilePath = result.Data.MainError.Document.Path
 
 		report.report.Location = result.Data.MainError.Nearest.Location()
+	}
+
+	if payload.ErrorCode == 0 || (logPayload.FilePath == "" && logPayload.FileVersion == 0) {
+		// use the provided command and working dir to extract the location of the file
+		_, pathFromArgs := runner.GetIdAndPathFromCommand(payload.Command)
+
+		if len(pathFromArgs) > 0 {
+			s.ServerLog.Println("extracted path from command:", pathFromArgs)
+
+			if !filepath.IsAbs(pathFromArgs) {
+				pathFromArgs = filepath.Join(payload.WorkingDir, pathFromArgs)
+			}
+
+			s.ServerLog.Println("(error_code > 0) resolved path:", pathFromArgs)
+
+			// open the file and get the contents
+			fileContents, err := s.FS().ReadFile(pathFromArgs)
+			if err == nil {
+				err := s.logger.WriteVersionedFile(pathFromArgs, fileContents, -1)
+
+				// write the file to the logger
+				if err == nil {
+					maxVersion, _ := s.logger.LatestVersionFromFile(pathFromArgs)
+					if maxVersion >= 0 {
+						logPayload.FilePath = pathFromArgs
+						logPayload.FileVersion = maxVersion
+					}
+				}
+			}
+		}
 	}
 
 	s.logger.Log(logPayload)

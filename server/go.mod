@@ -37,6 +37,7 @@ require (
 )
 
 require (
+	github.com/agnivade/levenshtein v1.1.1
 	github.com/carlmjohnson/versioninfo v0.22.5
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/lucasepe/codename v0.2.0
