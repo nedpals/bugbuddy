@@ -13,9 +13,9 @@ import (
 	"github.com/nedpals/bugbuddy/server/daemon"
 	daemonClient "github.com/nedpals/bugbuddy/server/daemon/client"
 	daemonTypes "github.com/nedpals/bugbuddy/server/daemon/types"
-	"github.com/nedpals/bugbuddy/server/helpers"
 	"github.com/nedpals/bugbuddy/server/release"
 	"github.com/nedpals/bugbuddy/server/rpc"
+	"github.com/nedpals/bugbuddy/server/runner"
 	"github.com/nedpals/bugbuddy/server/types"
 	"github.com/sourcegraph/jsonrpc2"
 	lsp "go.lsp.dev/protocol"
@@ -267,7 +267,7 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 		}
 
 		// get the run command based on language id
-		runCommand, err := helpers.GetRunCommand(payload.LanguageId, payload.TextDocument.URI.Filename())
+		runCommand, err := runner.GetCommand(payload.LanguageId, payload.TextDocument.URI.Filename())
 		if err != nil {
 			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
 				Code:    -32002,

@@ -1,13 +1,4 @@
-package helpers
-
-import (
-	"encoding/json"
-	"fmt"
-	"os"
-	"path/filepath"
-	"runtime"
-	"strings"
-)
+package runner
 
 type RunCommand struct {
 	Universal string // Command if both OS have same command. Not required if either Windows or Unix OS is specified.
@@ -57,84 +48,4 @@ var defaultRunCommands = map[string]RunCommand{
 	"vbnet":        {Universal: "vbnc ${filename} && mono ${fileNoExt}.exe"},
 	"vbs":          {Universal: "cscript ${filename}"},
 	"zig":          {Universal: "zig run ${filename}"},
-}
-
-func GetRunnerJson() (map[string]RunCommand, error) {
-	// where the commands stored in runner.json will be stored
-	customRunnerCommands := map[string]RunCommand{}
-
-	dirPath, err := GetOrInitializeDataDir()
-	if err != nil {
-		return customRunnerCommands, err
-	}
-
-	// write runner.json
-	runnerJsonPath := filepath.Join(dirPath, "runner.json")
-	if contents, err := os.ReadFile(runnerJsonPath); err == nil {
-		customRunnerCommandsStr := map[string]string{}
-
-		// parse to json
-		err = json.Unmarshal(contents, &customRunnerCommandsStr)
-		if err != nil {
-			return customRunnerCommands, err
-		}
-
-		// convert to RunCommand
-		for k, v := range customRunnerCommandsStr {
-			customRunnerCommands[k] = RunCommand{Universal: v}
-		}
-	}
-
-	return customRunnerCommands, err
-}
-
-func GetRunCommand(languageId string, filePath string) (string, error) {
-	// get current executable path
-	executablePath, err := os.Executable()
-	if err != nil {
-		return "", err
-	}
-
-	customRunCommands, err := GetRunnerJson()
-	if err != nil {
-		return "", err
-	}
-
-	runCommandList, ok := customRunCommands[languageId]
-	if !ok {
-		runCommandList, ok = defaultRunCommands[languageId]
-		if !ok {
-			return "", fmt.Errorf("no run command for language id %s", languageId)
-		}
-	}
-
-	runCommand := runCommandList.Universal
-	if len(runCommand) == 0 {
-		if runtime.GOOS == "windows" {
-			runCommand = runCommandList.Windows
-		} else {
-			runCommand = runCommandList.Unix
-		}
-
-		if len(runCommand) == 0 {
-			return "", fmt.Errorf("no run command for language id %s", languageId)
-		}
-	}
-
-	// replace the named placeholders
-	r := strings.NewReplacer(
-		"${file}", filePath,
-		"${filename}", filepath.Base(filePath),
-		"${filenameNoExt}", strings.TrimSuffix(filepath.Base(filePath), filepath.Ext(filePath)),
-		"${dir}", filepath.Dir(filePath),
-		"${fileNoExt}", strings.TrimSuffix(filePath, filepath.Ext(filePath)),
-	)
-
-	runCommand = r.Replace(runCommand)
-	if strings.Count(runCommand, "||") > 0 || strings.Count(runCommand, "&&") > 0 {
-		// wrap the command in double quotes if it contains logical operators
-		runCommand = fmt.Sprintf("\"%s\"", runCommand)
-	}
-
-	return fmt.Sprintf("%s -- %s", executablePath, runCommand), nil
 }

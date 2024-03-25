@@ -21,6 +21,7 @@ import (
 	timetosolve "github.com/nedpals/bugbuddy/server/logger/analyzer/time_to_solve"
 	"github.com/nedpals/bugbuddy/server/lsp_server"
 	"github.com/nedpals/bugbuddy/server/release"
+	"github.com/nedpals/bugbuddy/server/runner"
 	"github.com/nedpals/errgoengine"
 	"github.com/spf13/cobra"
 	"github.com/tealeg/xlsx"
@@ -194,7 +195,7 @@ var runCommandCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		languageId := args[0]
 		path := args[1]
-		runCmd, err := helpers.GetRunCommand(languageId, path)
+		runCmd, err := runner.GetCommand(languageId, path)
 		if err != nil {
 			log.Fatalln(err)
 		}
