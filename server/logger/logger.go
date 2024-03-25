@@ -344,7 +344,7 @@ func (log *Logger) WriteFile(filepath string, content []byte) error {
 
 func (log *Logger) LatestVersionFromFile(filepath string) (int, error) {
 	// get latest file version
-	var maxVersion int
+	var maxVersion *int
 
 	err := log.db.QueryRow(
 		"SELECT MAX(file_version) FROM files WHERE participant_id = ? AND file_path = ?",
@@ -355,7 +355,11 @@ func (log *Logger) LatestVersionFromFile(filepath string) (int, error) {
 		return -1, fmt.Errorf("we cannot get the latest file version: %w", err)
 	}
 
-	return maxVersion, nil
+	if maxVersion == nil {
+		return 0, nil
+	}
+
+	return *maxVersion, nil
 }
 
 func (log *Logger) WriteVersionedFile(filepath string, content []byte, file_version int) error {
@@ -364,7 +368,6 @@ func (log *Logger) WriteVersionedFile(filepath string, content []byte, file_vers
 		if err != nil {
 			return err
 		}
-
 		file_version = maxVersion + 1
 	}
 
