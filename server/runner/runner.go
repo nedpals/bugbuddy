@@ -23,7 +23,7 @@ func getJsonConfig() (map[string]RunCommand, error) {
 	// write runner.json
 	runnerJsonPath := filepath.Join(dirPath, "runner.json")
 	if contents, err := os.ReadFile(runnerJsonPath); err == nil {
-		customRunnerCommandsStr := map[string]string{}
+		customRunnerCommandsStr := map[string]any{}
 
 		// parse to json
 		err = json.Unmarshal(contents, &customRunnerCommandsStr)
@@ -33,7 +33,22 @@ func getJsonConfig() (map[string]RunCommand, error) {
 
 		// convert to RunCommand
 		for k, v := range customRunnerCommandsStr {
-			customRunnerCommands[k] = RunCommand{Universal: v}
+			commands := []string{}
+
+			// allow both string and []string for flexibility
+			switch v.(type) {
+			case string:
+				commands = []string{v.(string)}
+			case []any:
+				commands := []string{}
+				for _, cmd := range v.([]any) {
+					if cmdStr, ok := cmd.(string); ok {
+						commands = append(commands, cmdStr)
+					}
+				}
+			}
+
+			customRunnerCommands[k] = RunCommand{Universal: commands}
 		}
 	}
 
@@ -82,10 +97,10 @@ func GetCommand(languageId string, filePath string) (string, error) {
 		"${fileNoExt}", strings.TrimSuffix(filePath, filepath.Ext(filePath)),
 	)
 
-	runCommand = r.Replace(runCommand)
-	if strings.Count(runCommand, "||") > 0 || strings.Count(runCommand, "&&") > 0 {
+	runCommandStr := r.Replace(strings.Join(runCommand, "&&"))
+	if strings.Count(runCommandStr, "||") > 0 || strings.Count(runCommandStr, "&&") > 0 {
 		// wrap the command in double quotes if it contains logical operators
-		runCommand = fmt.Sprintf("\"%s\"", runCommand)
+		runCommandStr = fmt.Sprintf("\"%s\"", runCommandStr)
 	}
 
 	return fmt.Sprintf("%s -- %s", executablePath, runCommand), nil
