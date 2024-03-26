@@ -405,7 +405,7 @@ func (s *Server) collect(ctx context.Context, payload types.CollectPayload) (rec
 		report.report.Language = result.Template.Language.Name
 	}
 
-	if result.Data.MainError != nil {
+	if result.Data != nil && result.Data.MainError != nil {
 		logPayload.ErrorLine = result.Data.MainError.Nearest.StartPosition().Line
 		logPayload.ErrorColumn = result.Data.MainError.Nearest.StartPosition().Column
 		logPayload.FileVersion = result.Data.MainError.Document.Version
@@ -450,9 +450,11 @@ func (s *Server) collect(ctx context.Context, payload types.CollectPayload) (rec
 	s.errors = append(s.errors, report)
 	s.notifyErrors(ctx, []resultError{report})
 
-	// write files to the logger
-	for _, file := range result.Data.Documents {
-		s.logger.WriteVersionedFile(file.Path, []byte(file.Contents), file.Version)
+	if result.Data != nil && result.Data.Documents != nil {
+		// write files to the logger
+		for _, file := range result.Data.Documents {
+			s.logger.WriteVersionedFile(file.Path, []byte(file.Contents), file.Version)
+		}
 	}
 
 	return r, p, nil
