@@ -491,6 +491,7 @@ func NewServer() *Server {
 					helpers.NewSharedFS(),
 				},
 			},
+			IsTesting:   true,
 			SharedStore: errgoengine.NewEmptyStore(),
 			OutputGen:   &errgoengine.OutputGenerator{},
 		},
