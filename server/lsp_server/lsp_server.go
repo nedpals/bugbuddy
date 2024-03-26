@@ -416,7 +416,8 @@ func Start() error {
 				}
 
 				errReport := errReports[0]
-				tempExpFilepath := getTempFilePath(fileUri.Filename())
+				errSpecificFilename := filepath.Join(fileUri.Filename(), fmt.Sprintf("%d", hash(errReport.Template)))
+				tempExpFilepath := getTempFilePath(errSpecificFilename)
 				openErrorRawUri := fmt.Sprintf("vscode://nedpals.bugbuddy/openError?file=%s", url.QueryEscape(tempExpFilepath))
 				openErrorUri := uri.URI(openErrorRawUri)
 
@@ -441,7 +442,7 @@ func Start() error {
 				})
 
 				// save the output into a temporary file
-				if file, err := getTempFileForFile(fileUri.Filename()); err == nil {
+				if file, err := getTempFileForFile(errSpecificFilename); err == nil {
 					file.WriteString(errReport.FullMessage)
 					file.Close()
 				}
