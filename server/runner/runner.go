@@ -76,16 +76,14 @@ func GetCommand(languageId string, filePath string) (string, error) {
 	}
 
 	runCommand := runCommandList.Universal
-	if len(runCommand) == 0 {
-		if runtime.GOOS == "windows" {
-			runCommand = runCommandList.Windows
-		} else {
-			runCommand = runCommandList.Unix
-		}
+	if runtime.GOOS == "windows" && len(runCommandList.Windows) != 0 {
+		runCommand = runCommandList.Windows
+	} else if len(runCommandList.Unix) != 0 {
+		runCommand = runCommandList.Unix
+	}
 
-		if len(runCommand) == 0 {
-			return "", fmt.Errorf("no run command for language id %s", languageId)
-		}
+	if len(runCommand) == 0 {
+		return "", fmt.Errorf("no run command for language id %s", languageId)
 	}
 
 	// replace the named placeholders
@@ -103,5 +101,5 @@ func GetCommand(languageId string, filePath string) (string, error) {
 		runCommandStr = fmt.Sprintf("\"%s\"", runCommandStr)
 	}
 
-	return fmt.Sprintf("%s -- %s", executablePath, runCommand), nil
+	return fmt.Sprintf("%s -- %s", executablePath, runCommandStr), nil
 }
