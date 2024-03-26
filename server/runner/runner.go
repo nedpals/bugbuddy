@@ -95,7 +95,7 @@ func GetCommand(languageId string, filePath string) (string, error) {
 		"${fileNoExt}", strings.TrimSuffix(filePath, filepath.Ext(filePath)),
 	)
 
-	runCommandStr := r.Replace(strings.Join(runCommand, "&&"))
+	runCommandStr := r.Replace(strings.Join(runCommand, " && "))
 	if strings.Count(runCommandStr, "||") > 0 || strings.Count(runCommandStr, "&&") > 0 {
 		// wrap the command in double quotes if it contains logical operators
 		runCommandStr = fmt.Sprintf("\"%s\"", runCommandStr)
