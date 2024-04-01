@@ -22,7 +22,8 @@ export async function runFromUri(uri?: Uri): Promise<void> {
 
 export async function runDocument(doc: TextDocument) {
     if (doc.isDirty || doc.isUntitled) {
-        throw new Error('Please save the file before running.');
+        // throw new Error('Please save the file before running.');
+        doc.save();
     }
 
     const { command } = await getClient().sendRequest<{ command: string }>('$/fetchRunCommand', {
