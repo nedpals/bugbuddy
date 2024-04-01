@@ -16,7 +16,6 @@ import (
 	"github.com/nedpals/bugbuddy/server/release"
 	"github.com/nedpals/bugbuddy/server/rpc"
 	"github.com/nedpals/bugbuddy/server/runner"
-	"github.com/nedpals/bugbuddy/server/types"
 	"github.com/sourcegraph/jsonrpc2"
 	lsp "go.lsp.dev/protocol"
 	"go.lsp.dev/uri"
@@ -42,7 +41,6 @@ type LspServer struct {
 	unpublishedDiagnostics map[uri.URI][]daemonTypes.ErrorReport
 	publishChan            chan int
 	doneChan               chan int
-	documents              map[uri.URI]*types.Rope
 }
 
 func mustDecodePayload[T any](ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Request) *T {
@@ -157,10 +155,9 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 			return
 		}
 
-		s.documents[payload.TextDocument.URI] = types.NewRope(payload.TextDocument.Text)
 		s.daemonClient.ResolveDocument(
 			payload.TextDocument.URI.Filename(),
-			s.documents[payload.TextDocument.URI].ToString(),
+			payload.TextDocument.Text,
 		)
 
 		s.publishChan <- len(s.unpublishedDiagnostics)
@@ -170,31 +167,20 @@ func (s *LspServer) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Re
 			return
 		}
 
-		text := s.documents[payload.TextDocument.URI]
-
 		// edit the existing text (if any), and send the newly edited version to the daemon
 		for _, change := range payload.ContentChanges {
-			startOffset := text.OffsetFromPosition(change.Range.Start)
-
-			if len(change.Text) == 0 {
-				endOffset := text.OffsetFromPosition(change.Range.End)
-				text.Delete(startOffset, endOffset-startOffset)
-			} else {
-				text.Insert(startOffset, change.Text)
-			}
+			// NOTE: change the code if TextDocumentKind is set to Incremental
+			s.daemonClient.UpdateDocument(
+				payload.TextDocument.URI.Filename(),
+				change.Text,
+			)
 		}
-
-		s.daemonClient.UpdateDocument(
-			payload.TextDocument.URI.Filename(), // TODO:
-			text.ToString(),
-		)
 	case lsp.MethodTextDocumentDidClose:
 		payload := mustDecodePayload[lsp.DidCloseTextDocumentParams](ctx, c, r)
 		if payload == nil {
 			return
 		}
 
-		delete(s.documents, payload.TextDocument.URI)
 		s.daemonClient.DeleteDocument(
 			payload.TextDocument.URI.Filename(),
 		)
@@ -378,7 +364,6 @@ func Start() error {
 		unpublishedDiagnostics: map[uri.URI][]daemonTypes.ErrorReport{},
 		publishChan:            make(chan int),
 		doneChan:               doneChan,
-		documents:              map[uri.URI]*types.Rope{},
 		version:                release.Version(),
 	}
 
