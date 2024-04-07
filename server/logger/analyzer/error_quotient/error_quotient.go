@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/nedpals/bugbuddy/server/logger"
 	"github.com/nedpals/bugbuddy/server/logger/analyzer"
 	"github.com/sergi/go-diff/diffmatchpatch"
@@ -180,8 +181,20 @@ func (e *Analyzer) Analyze() error {
 		for participantId, logEntries := range logEntries {
 			// map[filePath][]CompilationEvent
 			compilationEvents := map[string][]CompilationEvent{}
+			fileNames := []string{}
 
 			for filePath, entries := range logEntries {
+				if _, ok := compilationEvents[filePath]; !ok {
+					// find the closest file name first before adding the compilation event
+					if found := fuzzy.RankFindFold(filePath, fileNames); len(found) != 0 {
+						fmt.Printf("error_quotient: Merging %s into %s\n", filePath, found[0].Target)
+						filePath = found[0].Target
+					} else {
+						fileNames = append(fileNames, filePath)
+						compilationEvents[filePath] = []CompilationEvent{}
+					}
+				}
+
 				for i := 0; i < len(entries)-1; i++ {
 					entry1 := entries[i]
 					entry2 := entries[i+1]
@@ -190,7 +203,8 @@ func (e *Analyzer) Analyze() error {
 					charDelta, location, err := CalculateCharDeltaAndLocation(log, filePath, entry1, entry2)
 					if err != nil {
 						// TODO: replace it with proper error handling
-						panic(err)
+						fmt.Printf("Error calculating char delta: %v\n", err)
+						continue
 					}
 
 					compilationEvent := CompilationEvent{

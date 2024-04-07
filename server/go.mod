@@ -17,6 +17,8 @@ require (
 	modernc.org/sqlite v1.28.0
 )
 
+require golang.org/x/text v0.9.0 // indirect
+
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/google/uuid v1.5.0 // indirect
@@ -40,6 +42,7 @@ require (
 	github.com/agnivade/levenshtein v1.1.1
 	github.com/carlmjohnson/versioninfo v0.22.5
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/lithammer/fuzzysearch v1.1.8
 	github.com/lucasepe/codename v0.2.0
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/segmentio/encoding v0.4.0 // indirect

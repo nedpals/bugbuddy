@@ -1,8 +1,10 @@
 package timetosolve
 
 import (
+	"fmt"
 	"time"
 
+	"github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/nedpals/bugbuddy/server/logger/analyzer"
 )
 
@@ -36,6 +38,8 @@ func (t *Analyzer) Analyze() error {
 		// map[participantId]map[filePath]time.Time
 		startTimes := map[string]map[string]time.Time{}
 
+		fileNames := []string{}
+
 		for iter.Next() {
 			entry, err := iter.Value()
 			if err != nil {
@@ -47,21 +51,34 @@ func (t *Analyzer) Analyze() error {
 				ttsResults[entry.ParticipantId] = make(map[string]time.Duration)
 			}
 
+			filePath := entry.FilePath
+
 			if _, ok := ttsResults[entry.ParticipantId][entry.FilePath]; !ok {
-				// For simplicity, assume that the first entry is the start time
-				// This may need to be adjusted depending on how you define the start of a problem set
-				ttsResults[entry.ParticipantId][entry.FilePath] = time.Duration(0)
+				// find the closest file name first before adding the compilation event
+				if found := fuzzy.RankFindFold(filePath, fileNames); len(found) != 0 {
+					fmt.Printf("time_to_solve: Merging %s into %s\n", filePath, found[0].Target)
+					filePath = found[0].Target
+				} else {
+					fileNames = append(fileNames, filePath)
+
+					// For simplicity, assume that the first entry is the start time
+					// This may need to be adjusted depending on how you define the start of a problem set
+					ttsResults[entry.ParticipantId][filePath] = time.Duration(0)
+				}
 			}
 
 			if _, ok := startTimes[entry.ParticipantId]; !ok {
 				startTimes[entry.ParticipantId] = make(map[string]time.Time)
-				startTimes[entry.ParticipantId][entry.FilePath] = entry.CreatedAt.Time
+			}
+
+			if _, ok := startTimes[entry.ParticipantId][filePath]; !ok {
+				startTimes[entry.ParticipantId][filePath] = entry.CreatedAt.Time
 			}
 
 			// If this entry represents a successful compilation, update the TTS
 			if entry.ErrorCode == 0 {
-				startTime := startTimes[entry.ParticipantId][entry.FilePath]
-				ttsResults[entry.ParticipantId][entry.FilePath] = entry.CreatedAt.Time.Sub(startTime)
+				startTime := startTimes[entry.ParticipantId][filePath]
+				ttsResults[entry.ParticipantId][filePath] = entry.CreatedAt.Time.Sub(startTime)
 			}
 		}
 

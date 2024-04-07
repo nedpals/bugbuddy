@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/nedpals/bugbuddy/server/logger/analyzer"
 )
 
@@ -61,10 +62,31 @@ func (e *Analyzer) Analyze() error {
 		}
 
 		for participantId, eventsByFilepath := range errorEvents {
+			fileNames := []string{}
+
+			if e.ResultsByParticipant == nil {
+				e.ResultsByParticipant = map[string]map[string]float64{}
+			}
+
+			if _, ok := e.ResultsByParticipant[participantId]; !ok {
+				e.ResultsByParticipant[participantId] = map[string]float64{}
+			}
+
 			for filePath, events := range eventsByFilepath {
 				currentErrorType := ""
 				repeatedCount := 0
 				red := 0.0
+
+				if _, ok := e.ResultsByParticipant[participantId][filePath]; !ok {
+					// find the closest file name first before adding the compilation event
+					if found := fuzzy.RankFindFold(filePath, fileNames); len(found) != 0 {
+						fmt.Printf("repeated_error_quotient: Merging %s into %s\n", filePath, found[0].Target)
+						filePath = found[0].Target
+					} else {
+						fileNames = append(fileNames, filePath)
+						e.ResultsByParticipant[participantId][filePath] = 0.0
+					}
+				}
 
 				for _, event := range events {
 					if event.IsError && event.ErrorType == currentErrorType {
@@ -90,18 +112,6 @@ func (e *Analyzer) Analyze() error {
 
 				if repeatedCount > 0 {
 					red += float64(repeatedCount*repeatedCount) / float64(repeatedCount+1)
-				}
-
-				if e.ResultsByParticipant == nil {
-					e.ResultsByParticipant = map[string]map[string]float64{}
-				}
-
-				if _, ok := e.ResultsByParticipant[participantId]; !ok {
-					e.ResultsByParticipant[participantId] = map[string]float64{}
-				}
-
-				if _, ok := e.ResultsByParticipant[participantId][filePath]; !ok {
-					e.ResultsByParticipant[participantId][filePath] = 0.0
 				}
 
 				e.ResultsByParticipant[participantId][filePath] = red

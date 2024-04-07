@@ -289,6 +289,16 @@ func (log *Logger) Entries() (*LogEntryIterator, error) {
 	return &LogEntryIterator{rows: rows}, nil
 }
 
+// EntriesDescending returns log entries in descending order (latest first)
+func (log *Logger) EntriesDescending() (*LogEntryIterator, error) {
+	rows, err := log.db.Queryx("SELECT * FROM logs ORDER BY created_at DESC")
+	if err != nil {
+		defer rows.Close()
+		return nil, err
+	}
+	return &LogEntryIterator{rows: rows}, nil
+}
+
 func (log *Logger) EntriesByParticipantId(participantId string) (*LogEntryIterator, error) {
 	rows, err := log.db.Queryx("SELECT * FROM logs WHERE participant_id = ?", participantId)
 	if err != nil {
