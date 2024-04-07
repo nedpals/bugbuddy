@@ -50,6 +50,8 @@ github.com/nedpals/errgoengine v0.0.0-20240314002515-5f2d3102ac97 h1:gMdSQbnVqvN
 github.com/nedpals/errgoengine v0.0.0-20240314002515-5f2d3102ac97/go.mod h1:uYC7Mfw/No0v7VerEzJMPt6MdqgS6OYlkWdhan7cnz0=
 github.com/nedpals/errgoengine v0.0.0-20240325041034-7b0546a12c1f h1:aK4qaPcr4uprAFBkO3ERUg1tym9MipmN0lwwWEl8+m4=
 github.com/nedpals/errgoengine v0.0.0-20240325041034-7b0546a12c1f/go.mod h1:uYC7Mfw/No0v7VerEzJMPt6MdqgS6OYlkWdhan7cnz0=
+github.com/nedpals/errgoengine v0.0.0-20240401074707-66b671a5f075 h1:UBecmIjXmkSXcgMuT7kAbMQPysWk1hba3Jh/x9QRa7Y=
+github.com/nedpals/errgoengine v0.0.0-20240401074707-66b671a5f075/go.mod h1:uYC7Mfw/No0v7VerEzJMPt6MdqgS6OYlkWdhan7cnz0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec h1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=

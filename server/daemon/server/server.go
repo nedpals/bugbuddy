@@ -34,6 +34,8 @@ type resultError struct {
 type Server struct {
 	ServerLog *log.Logger
 	engine    *errgoengine.ErrgoEngine
+	// fileUseCounter is use to keep track how many clients are using a file
+	fileUseCounter map[string][]int
 	// TODO: add storage for context data
 	connectedClients connectedClients
 	logger           *logger.Logger
@@ -203,11 +205,21 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 			return
 		}
 
-		if err := d.FS().WriteFile(payloadStr.Filepath, []byte(payloadStr.Content)); err != nil {
-			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
-				Message: err.Error(),
-			})
-			return
+		if _, ok := d.fileUseCounter[payloadStr.Filepath]; !ok {
+			if err := d.FS().WriteFile(payloadStr.Filepath, []byte(payloadStr.Content)); err != nil {
+				c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+					Message: err.Error(),
+				})
+				return
+			}
+
+			d.fileUseCounter[payloadStr.Filepath] = []int{}
+		}
+
+		// check if the current connected client is present in specific file of fileUseCounter
+		procId, _ := d.getProcessId(r)
+		if idx := d.GetFileUseIdx(payloadStr.Filepath, procId); idx == -1 {
+			d.fileUseCounter[payloadStr.Filepath] = append(d.fileUseCounter[payloadStr.Filepath], procId)
 		}
 
 		d.ServerLog.Printf("resolved document: %s (len: %d)\n", payloadStr.Filepath, len(payloadStr.Content))
@@ -277,18 +289,76 @@ func (d *Server) Handle(ctx context.Context, c *jsonrpc2.Conn, r *jsonrpc2.Reque
 			file.Close()
 		}
 
-		// TODO: use dependency tree
-		if err := d.FS().Remove(payload.Filepath); err != nil {
+		// decide if the file will be removed
+		procId, _ := d.getProcessId(r)
+		if idx := d.GetFileUseIdx(payload.Filepath, procId); idx != -1 {
+			// remove the process id from the file use counter
+			d.fileUseCounter[payload.Filepath] = append(
+				d.fileUseCounter[payload.Filepath][:idx],
+				d.fileUseCounter[payload.Filepath][idx+1:]...)
+
+			if idx > 0 {
+				d.ServerLog.Printf("file %q is still in use. removing the client from the file users instead", payload.Filepath)
+			}
+		}
+
+		if fileConsumers, ok := d.fileUseCounter[payload.Filepath]; !ok || len(fileConsumers) == 0 {
+			if ok {
+				delete(d.fileUseCounter, payload.Filepath)
+			}
+
+			if err := d.FS().Remove(payload.Filepath); err != nil {
+				c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+					Message: err.Error(),
+				})
+				return
+			}
+
+			d.ServerLog.Printf("removed document: %s\n", payload.Filepath)
+		}
+
+		c.Reply(ctx, r.ID, "ok")
+
+		// doc := d.engine
+	case types.RetrieveDocumentMethod:
+		var payload types.DocumentIdentifier
+		if err := json.Unmarshal(*r.Params, &payload); err != nil {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Message: "Unable to decode params of method " + r.Method,
+			})
+			return
+		}
+
+		if len(payload.Filepath) == 0 {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Message: "Filepath is empty",
+			})
+			return
+		}
+
+		file, err := d.FS().Open(payload.Filepath)
+		if err != nil {
+			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
+				Message: err.Error(),
+			})
+
+			return
+		} else {
+			file.Close()
+		}
+
+		fileContents, err := d.FS().ReadFile(payload.Filepath)
+		if err != nil {
 			c.ReplyWithError(ctx, r.ID, &jsonrpc2.Error{
 				Message: err.Error(),
 			})
 			return
 		}
 
-		d.ServerLog.Printf("removed document: %s\n", payload.Filepath)
-		c.Reply(ctx, r.ID, "ok")
-
-		// doc := d.engine
+		c.Reply(ctx, r.ID, types.DocumentPayload{
+			DocumentIdentifier: payload,
+			Content:            string(fileContents),
+		})
 	case types.RetrieveParticipantIdMethod:
 		c.Reply(ctx, r.ID, d.logger.ParticipantId())
 	case types.GenerateParticipantIdMethod:
@@ -483,6 +553,20 @@ func (s *Server) Start(addr string) error {
 	)
 }
 
+func (s *Server) GetFileUseIdx(file string, procId int) int {
+	if _, ok := s.fileUseCounter[file]; !ok {
+		return -1
+	}
+
+	for i, id := range s.fileUseCounter[file] {
+		if id == procId {
+			return i
+		}
+	}
+
+	return -1
+}
+
 func NewServer() *Server {
 	server := &Server{
 		ServerLog: log.New(os.Stdout, "server> ", 0),
@@ -498,6 +582,7 @@ func NewServer() *Server {
 			OutputGen:   &errgoengine.OutputGenerator{},
 		},
 		connectedClients: connectedClients{},
+		fileUseCounter:   map[string][]int{},
 		errors:           []resultError{},
 		logger:           logger.NewMemoryLoggerPanic(),
 	}

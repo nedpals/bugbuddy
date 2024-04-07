@@ -264,6 +264,14 @@ func (c *Client) DeleteDocument(filepath string) error {
 	}, nil)
 }
 
+func (c *Client) RetrieveDocument(filepath string) (string, error) {
+	var content types.DocumentPayload
+	err := c.Call(types.RetrieveDocumentMethod, types.DocumentIdentifier{
+		Filepath: filepath,
+	}, &content)
+	return content.Content, err
+}
+
 func (c *Client) GetDataDirPath() (string, error) {
 	var path string
 	err := c.Call(types.GetDataDirMethod, nil, &path)

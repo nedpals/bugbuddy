@@ -44,9 +44,10 @@ var (
 
 // document methods
 var (
-	ResolveDocumentMethod = documentsNamespace.methodName("resolve")
-	UpdateDocumentMethod  = documentsNamespace.methodName("update")
-	DeleteDocumentMethod  = documentsNamespace.methodName("delete")
+	ResolveDocumentMethod  = documentsNamespace.methodName("resolve")
+	UpdateDocumentMethod   = documentsNamespace.methodName("update")
+	DeleteDocumentMethod   = documentsNamespace.methodName("delete")
+	RetrieveDocumentMethod = documentsNamespace.methodName("retrieve")
 )
 
 // client methods

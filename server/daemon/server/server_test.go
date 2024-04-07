@@ -233,6 +233,10 @@ func TestDeleteDocument(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if srv.GetFileUseIdx("hello.py", clientId) == -1 {
+		t.Fatalf("expected client to be added as user of the file")
+	}
+
 	// wait for the server to process the document
 	time.Sleep(100 * time.Millisecond)
 
@@ -240,6 +244,11 @@ func TestDeleteDocument(t *testing.T) {
 	err = client.DeleteDocument("hello.py")
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	// check if the client is removed as user of the file
+	if srv.GetFileUseIdx("hello.py", clientId) != -1 {
+		t.Fatalf("expected client to be removed as user of the file")
 	}
 
 	// wait for the server to process the document
@@ -342,6 +351,10 @@ func TestUpdateDocument(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if srv.GetFileUseIdx("hello.py", clientId) == -1 {
+		t.Fatalf("expected client to be added as user of the file")
+	}
+
 	// wait for the server to process the document
 	time.Sleep(100 * time.Millisecond)
 
@@ -416,6 +429,40 @@ func TestUpdateDocument_Nonexisting(t *testing.T) {
 		}
 	} else {
 		t.Fatalf("expected jsonrpc2.Error, got %T", err)
+	}
+}
+
+func TestRetrieveDocument(t *testing.T) {
+	clientId := 1
+	conn, srv, client := Setup()
+	defer conn.Close()
+
+	client.SetId(clientId)
+	defer client.Close()
+
+	if err := client.Connect(); err != nil {
+		t.Fatal(err)
+	}
+
+	// add first document
+	expected := "print(a)"
+	err := client.ResolveDocument("hello.py", expected)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if srv.GetFileUseIdx("hello.py", clientId) == -1 {
+		t.Fatalf("expected client to be added as user of the file")
+	}
+
+	// retrieve the document
+	resp, err := client.RetrieveDocument("hello.py")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp != expected {
+		t.Fatalf("expected non-empty content, got %s", resp)
 	}
 }
 
