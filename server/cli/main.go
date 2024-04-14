@@ -7,10 +7,10 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"time"
 
+	"github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/nedpals/bugbuddy/server/daemon"
 	"github.com/nedpals/bugbuddy/server/daemon/types"
 	"github.com/nedpals/bugbuddy/server/executor"
@@ -26,6 +26,7 @@ import (
 	"github.com/nedpals/errgoengine"
 	"github.com/spf13/cobra"
 	"github.com/tealeg/xlsx"
+	"golang.org/x/exp/maps"
 )
 
 var rootCmd = &cobra.Command{
@@ -206,33 +207,102 @@ var runCommandCmd = &cobra.Command{
 	},
 }
 
-type analyzeResults struct {
-	FilePath             string
-	ErrorQuotient        float64
-	RepeatedErrorDensity float64
-	TimeToSolve          time.Duration
+type analyzerResult map[string]*analyzerResultEntry
+
+func (a analyzerResult) Write(name string, pid string, filePath string, value any) {
+	if _, ok := a[pid]; !ok {
+		a[pid] = &analyzerResultEntry{
+			ParticipantId:    pid,
+			FilenameAliases:  map[string]string{},
+			FilenamesIndices: map[string]int{},
+			Filenames:        []string{},
+
+			ErrorQuotient:        map[int]float64{},
+			RepeatedErrorDensity: map[int]float64{},
+			TimeToSolve:          map[int]time.Duration{},
+		}
+	}
+
+	a[pid].Write(name, filePath, value)
 }
 
-var validAnalyzerMetrics = []string{"eq", "red", "tts"}
+type analyzerResultEntry struct {
+	ParticipantId    string
+	FilenameAliases  map[string]string
+	FilenamesIndices map[string]int
+	Filenames        []string
+
+	// map[index of file]type
+	ErrorQuotient        map[int]float64
+	RepeatedErrorDensity map[int]float64
+	TimeToSolve          map[int]time.Duration
+}
+
+func (a *analyzerResultEntry) Write(name string, filePath string, value any) {
+	if _, ok := a.FilenamesIndices[filePath]; !ok {
+		// check if the filePath is already an alias
+		if alias, ok := a.FilenameAliases[filePath]; ok {
+			filePath = alias
+		} else if found := fuzzy.RankFindFold(filePath, a.Filenames); len(found) != 0 {
+			// find the closest file name first before adding the value
+			foundPath := found[0].Target
+
+			// check if the found path is a prefix of the file path
+			if found[0].Distance <= 5 && len(filePath) > len(foundPath) && strings.HasPrefix(filePath, foundPath) {
+				// if it is, replace the found path with the file path
+				a.FilenameAliases[foundPath] = filePath
+				a.FilenamesIndices[filePath] = a.FilenamesIndices[foundPath]
+				delete(a.FilenamesIndices, foundPath)
+
+				// replace the found path with the file path
+				a.Filenames[a.FilenamesIndices[filePath]] = filePath
+			} else {
+				// if it is not, add the file path
+				a.FilenamesIndices[filePath] = len(a.Filenames)
+				a.Filenames = append(a.Filenames, filePath)
+			}
+		} else {
+			// if it is not, add the file path
+			a.FilenamesIndices[filePath] = len(a.Filenames)
+			a.Filenames = append(a.Filenames, filePath)
+		}
+	}
+
+	// fmt.Printf("error_quotient: Merging %s into %s\n", filePath, found[0].Target)
+	index := a.FilenamesIndices[filePath]
+
+	switch name {
+	case errorquotient.KEY:
+		a.ErrorQuotient[index] = value.(float64)
+	case red.KEY:
+		a.RepeatedErrorDensity[index] = value.(float64)
+	case timetosolve.KEY:
+		a.TimeToSolve[index] = value.(time.Duration)
+	}
+}
+
+var supportedAnalyzers = map[string]log_analyzer.LoggerAnalyzer{
+	"eq":  log_analyzer.New[*errorquotient.Analyzer](),
+	"red": log_analyzer.New[*red.Analyzer](),
+	"tts": log_analyzer.New[*timetosolve.Analyzer](),
+}
+
+var analyzerCellNames = map[string]string{
+	"eq":  "Error Quotient",
+	"red": "Repeated Error Density",
+	"tts": "Time To Solve",
+}
 
 var analyzeLogCmd = &cobra.Command{
 	Use:   "analyze-log",
 	Short: "Analyzes a set of log files. The results will be saved to an excel file.",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		analyzers, _ := cmd.Flags().GetStringSlice("metrics")
-		for _, analyzer := range analyzers {
-			valid := false
+		selectedAnalyzers, _ := cmd.Flags().GetStringSlice("metrics")
 
-			for _, validAnalyzer := range validAnalyzerMetrics {
-				if analyzer == validAnalyzer {
-					valid = true
-					break
-				}
-			}
-
-			if !valid {
-				return fmt.Errorf("invalid analyzer: %s. only %s were allowed", analyzer, strings.Join(validAnalyzerMetrics, ", "))
+		for _, analyzerName := range selectedAnalyzers {
+			if _, ok := supportedAnalyzers[analyzerName]; !ok {
+				return fmt.Errorf("invalid analyzer: %s. only %s were allowed", analyzerName, strings.Join(maps.Keys(supportedAnalyzers), ", "))
 			}
 		}
 
@@ -271,8 +341,7 @@ var analyzeLogCmd = &cobra.Command{
 			}
 		}
 
-		// map[analyzer]map[participantId]map[filePath]struct{FilePath string, ErrorQuotient float64, RepeatedErrorDensity float64, TimeToSolve time.Duration}
-		results := map[string]map[string]*analyzeResults{}
+		results := analyzerResult{}
 
 		for _, lgLoader := range loggerLoaders {
 			lg, err := lgLoader()
@@ -284,65 +353,10 @@ var analyzeLogCmd = &cobra.Command{
 				return lg, nil
 			}
 
-			for _, analyzer := range analyzers {
-				switch analyzer {
-				case "eq":
-					eqa := log_analyzer.New[errorquotient.Analyzer](loader)
-					if err := eqa.Analyze(); err != nil {
-						log.Fatalln(err)
-					}
-
-					for participantId, filePaths := range eqa.ResultsByParticipant {
-						if _, ok := results[participantId]; !ok {
-							results[participantId] = map[string]*analyzeResults{}
-						}
-
-						for filePath, eq := range filePaths {
-							if _, ok := results[participantId][filePath]; !ok {
-								results[participantId][filePath] = &analyzeResults{FilePath: filePath}
-							}
-
-							results[participantId][filePath].ErrorQuotient = eq
-						}
-					}
-				case "red":
-					red := log_analyzer.New[red.Analyzer](loader)
-					if err := red.Analyze(); err != nil {
-						log.Fatalln(err)
-					}
-
-					for participantId, filePaths := range red.ResultsByParticipant {
-						if _, ok := results[participantId]; !ok {
-							results[participantId] = map[string]*analyzeResults{}
-						}
-
-						for filePath, red := range filePaths {
-							if _, ok := results[participantId][filePath]; !ok {
-								results[participantId][filePath] = &analyzeResults{FilePath: filePath}
-							}
-
-							results[participantId][filePath].RepeatedErrorDensity = red
-						}
-					}
-				case "tts":
-					tts := log_analyzer.New[timetosolve.Analyzer](loader)
-					if err := tts.Analyze(); err != nil {
-						log.Fatalln(err)
-					}
-
-					for participantId, filePaths := range tts.ResultsByParticipant {
-						if _, ok := results[participantId]; !ok {
-							results[participantId] = map[string]*analyzeResults{}
-						}
-
-						for filePath, tts := range filePaths {
-							if _, ok := results[participantId][filePath]; !ok {
-								results[participantId][filePath] = &analyzeResults{FilePath: filePath}
-							}
-
-							results[participantId][filePath].TimeToSolve = tts
-						}
-					}
+			for _, analyzerName := range selectedAnalyzers {
+				analyzer := supportedAnalyzers[analyzerName]
+				if err := analyzer.Analyze(results, loader); err != nil {
+					log.Fatalf("error(%T): %s", analyzer, err)
 				}
 			}
 
@@ -354,7 +368,7 @@ var analyzeLogCmd = &cobra.Command{
 		// save the results to an excel file
 		wb := xlsx.NewFile()
 
-		for participantId, filePaths := range results {
+		for participantId, result := range results {
 			sheet, err := wb.AddSheet(participantId)
 			if err != nil {
 				log.Fatalln(err)
@@ -364,32 +378,31 @@ var analyzeLogCmd = &cobra.Command{
 			row := sheet.AddRow()
 			row.AddCell().SetValue("File Path")
 
-			if slices.Contains(analyzers, "eq") {
-				row.AddCell().SetValue("Error Quotient")
+			// analyzer locations
+			analyzerCellLocations := map[string]int{}
+
+			for aCellRow, analyzerName := range selectedAnalyzers {
+				name := analyzerCellNames[analyzerName]
+				aCell := row.AddCell()
+				aCell.SetValue(name)
+				analyzerCellLocations[analyzerName] = aCellRow + 1
 			}
 
-			if slices.Contains(analyzers, "red") {
-				row.AddCell().SetValue("Repeated Error Density")
-			}
+			for fileIdx, filePath := range result.Filenames {
+				row := sheet.Row(fileIdx + 1)
+				row.AddCell().SetValue(filePath)
 
-			if slices.Contains(analyzers, "tts") {
-				row.AddCell().SetValue("Time To Solve")
-			}
+				for _, analyzerName := range selectedAnalyzers {
+					cell := sheet.Cell(fileIdx+1, analyzerCellLocations[analyzerName])
 
-			for _, result := range filePaths {
-				row = sheet.AddRow()
-				row.AddCell().SetValue(result.FilePath)
-
-				if slices.Contains(analyzers, "eq") {
-					row.AddCell().SetValue(result.ErrorQuotient)
-				}
-
-				if slices.Contains(analyzers, "red") {
-					row.AddCell().SetValue(result.RepeatedErrorDensity)
-				}
-
-				if slices.Contains(analyzers, "tts") {
-					row.AddCell().SetValue(formatDuration(result.TimeToSolve))
+					switch analyzerName {
+					case "eq":
+						cell.SetValue(result.ErrorQuotient[fileIdx])
+					case "red":
+						cell.SetValue(result.RepeatedErrorDensity[fileIdx])
+					case "tts":
+						cell.SetValue(formatDuration(result.TimeToSolve[fileIdx]))
+					}
 				}
 			}
 		}

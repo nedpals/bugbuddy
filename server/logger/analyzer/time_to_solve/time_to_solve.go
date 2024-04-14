@@ -1,27 +1,18 @@
 package timetosolve
 
 import (
-	"fmt"
 	"time"
 
-	"github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/nedpals/bugbuddy/server/logger/analyzer"
+	"github.com/nedpals/bugbuddy/server/logger/analyzer/internal"
 )
 
-type Analyzer struct {
-	LoggerLoader []analyzer.LoggerLoader
-	// ResultsByParticipant is a map of participant IDs to their respective Time-to-Solve for each problem set.
-	// format: map[participantId]map[filePath]time.Duration
-	ResultsByParticipant map[string]map[string]time.Duration
-}
+const KEY = "time_to_solve"
 
-func (t *Analyzer) Load(loader []analyzer.LoggerLoader) error {
-	t.LoggerLoader = loader
-	return nil
-}
+type Analyzer struct{}
 
-func (t *Analyzer) Analyze() error {
-	for _, loader := range t.LoggerLoader {
+func (t *Analyzer) Analyze(writer analyzer.KVWriter, loaders ...analyzer.LoggerLoader) error {
+	for _, loader := range loaders {
 		log, err := loader()
 		if err != nil {
 			return err
@@ -32,13 +23,8 @@ func (t *Analyzer) Analyze() error {
 			return err
 		}
 
-		// map[participantId]map[filePath]time.Duration
-		ttsResults := map[string]map[string]time.Duration{}
-
 		// map[participantId]map[filePath]time.Time
-		startTimes := map[string]map[string]time.Time{}
-
-		fileNames := []string{}
+		startTimes := map[string]*internal.ResultStore[time.Time]{}
 
 		for iter.Next() {
 			entry, err := iter.Value()
@@ -46,43 +32,28 @@ func (t *Analyzer) Analyze() error {
 				continue
 			}
 
-			// Initialize the participantId and filePath maps if they haven't been already
-			if _, ok := ttsResults[entry.ParticipantId]; !ok {
-				ttsResults[entry.ParticipantId] = make(map[string]time.Duration)
-			}
-
 			filePath := entry.FilePath
 
-			if _, ok := ttsResults[entry.ParticipantId][entry.FilePath]; !ok {
-				// find the closest file name first before adding the compilation event
-				if found := fuzzy.RankFindFold(filePath, fileNames); len(found) != 0 {
-					fmt.Printf("time_to_solve: Merging %s into %s\n", filePath, found[0].Target)
-					filePath = found[0].Target
-				} else {
-					fileNames = append(fileNames, filePath)
-
-					// For simplicity, assume that the first entry is the start time
-					// This may need to be adjusted depending on how you define the start of a problem set
-					ttsResults[entry.ParticipantId][filePath] = time.Duration(0)
-				}
-			}
-
 			if _, ok := startTimes[entry.ParticipantId]; !ok {
-				startTimes[entry.ParticipantId] = make(map[string]time.Time)
+				startTimes[entry.ParticipantId] = internal.NewResultStore[time.Time]()
 			}
 
-			if _, ok := startTimes[entry.ParticipantId][filePath]; !ok {
-				startTimes[entry.ParticipantId][filePath] = entry.CreatedAt.Time
+			if !startTimes[entry.ParticipantId].Has(filePath) {
+				startTime := startTimes[entry.ParticipantId].GetOr(filePath, time.Time{})
+
+				// if startTime is zero or startTime is greater than entry.CreatedAt.Time
+				// set the startTime to entry.CreatedAt.Time
+				if startTime.IsZero() || startTime.Compare(entry.CreatedAt.Time) > 0 {
+					startTimes[entry.ParticipantId].Set(filePath, entry.CreatedAt.Time)
+				}
 			}
 
 			// If this entry represents a successful compilation, update the TTS
 			if entry.ErrorCode == 0 {
-				startTime := startTimes[entry.ParticipantId][filePath]
-				ttsResults[entry.ParticipantId][filePath] = entry.CreatedAt.Time.Sub(startTime)
+				startTime := startTimes[entry.ParticipantId].Get(filePath)
+				writer.Write(KEY, entry.ParticipantId, filePath, entry.CreatedAt.Time.Sub(startTime))
 			}
 		}
-
-		t.ResultsByParticipant = ttsResults
 	}
 
 	return nil

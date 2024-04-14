@@ -4,3 +4,4 @@ test/**/*.class
 test/**/.vscode
 
 go.work
+results.xlsx

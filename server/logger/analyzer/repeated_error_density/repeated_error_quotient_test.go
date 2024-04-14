@@ -8,6 +8,8 @@ import (
 	red "github.com/nedpals/bugbuddy/server/logger/analyzer/repeated_error_density"
 )
 
+const KEY = "repeated_error_density"
+
 // TestREDAnalyzer tests the RED Analyzer with a set of mock error events.
 func TestREDAnalyzer(t *testing.T) {
 	// Setup logger
@@ -167,17 +169,19 @@ func TestREDAnalyzer(t *testing.T) {
 	}
 
 	// Initialize the RED Analyzer
-	redAnalyzer := analyzer.New[red.Analyzer](analyzer.LoadFromExistingLogger(log))
+	redAnalyzer := analyzer.New[*red.Analyzer]()
+	logg := analyzer.LoadFromExistingLogger(log)
+	kv := analyzer.NewDefaultKV()
 
 	// Analyze to calculate RED
-	if err := redAnalyzer.Analyze(); err != nil {
+	if err := redAnalyzer.Analyze(kv, logg); err != nil {
 		t.Fatalf("RED Analyzer failed: %v", err)
 	}
 
 	// Check the RED values for each participant
 	for _, p := range mockData {
 		pId := log.ParticipantId()
-		red, ok := redAnalyzer.ResultsByParticipant[pId][p.filePath]
+		red, ok := kv[red.KEY][pId][p.filePath].(float64)
 		if !ok {
 			t.Errorf("No RED value found for participant %s", pId)
 			continue

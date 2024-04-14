@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/nedpals/bugbuddy/server/logger"
 	"github.com/nedpals/bugbuddy/server/logger/analyzer"
+	"github.com/nedpals/bugbuddy/server/logger/analyzer/internal"
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
+
+const KEY = "error_quotient"
 
 type CompilationEvent struct {
 	ErrorType int
@@ -75,7 +77,12 @@ func ErrorTypeConversion(errorCode int) int {
 }
 
 // Function to calculate CharDelta by comparing two versions of the same file
-func CalculateCharDeltaAndLocation(log *logger.Logger, filepath string, version1, version2 logger.LogEntry) (charDelta int, location string, err error) {
+func CalculateCharDeltaAndLocation(log *logger.Logger, filepath string, version1, version2 *logger.LogEntry) (charDelta int, location string, err error) {
+	if version1.FileVersion == 0 && strings.HasPrefix(version1.GeneratedOutput, "# UnknownError") {
+		// This is a special case where the file is not found, and the error message is "# UnknownError"
+		return 0, "", nil
+	}
+
 	// open the files first
 	content1, err := log.OpenVersionedFile(filepath, version1.FileVersion)
 	if err != nil {
@@ -119,25 +126,17 @@ func CalculateCharDeltaAndLocation(log *logger.Logger, filepath string, version1
 type ErrorQuotientAnalysisResult struct {
 	// errorEntries is a map of error types to the log entries
 	// format: map[filePath][]logEntry
-	compilationEvents map[string][]CompilationEvent
+	compilationEvents *internal.ResultStore[[]CompilationEvent]
 }
 
 type Analyzer struct {
-	LoggerLoaders       []analyzer.LoggerLoader
 	ErrorsByParticipant map[string]ErrorQuotientAnalysisResult
-
-	// ResultsByParticipant is a map of participantId to the error quotient
-	// map[participantId]map[filePath]errorQuotient
-	ResultsByParticipant map[string]map[string]float64
 }
 
-func (e *Analyzer) Load(loaders []analyzer.LoggerLoader) error {
-	e.LoggerLoaders = loaders
-	return nil
-}
+func (e *Analyzer) Analyze(writer analyzer.KVWriter, loaders ...analyzer.LoggerLoader) error {
+	results := map[string]ErrorQuotientAnalysisResult{}
 
-func (e *Analyzer) Analyze() error {
-	for _, loader := range e.LoggerLoaders {
+	for _, loader := range loaders {
 		// Read the log file in a goroutine
 		log, err := loader()
 		if err != nil {
@@ -145,7 +144,7 @@ func (e *Analyzer) Analyze() error {
 		}
 
 		// map[participantId]map[filePath][]logEntry
-		logEntries := map[string]map[string][]logger.LogEntry{}
+		logEntries := map[string]*internal.ResultStore[[]logger.LogEntry]{}
 
 		// Get all the iter from the logger
 		iter, err := log.Entries()
@@ -167,37 +166,30 @@ func (e *Analyzer) Analyze() error {
 
 			participantId := entry.ParticipantId
 			if _, ok := logEntries[participantId]; !ok {
-				logEntries[participantId] = map[string][]logger.LogEntry{}
+				logEntries[participantId] = internal.NewResultStore[[]logger.LogEntry]()
 			}
 
 			filePath := entry.FilePath
-			if _, ok := logEntries[participantId][filePath]; !ok {
-				logEntries[participantId][filePath] = []logger.LogEntry{}
-			}
-
-			logEntries[participantId][filePath] = append(logEntries[participantId][filePath], entry)
+			logEntries[participantId].Set(
+				filePath,
+				append(
+					logEntries[participantId].GetOr(filePath, []logger.LogEntry{}),
+					entry))
 		}
 
 		for participantId, logEntries := range logEntries {
 			// map[filePath][]CompilationEvent
-			compilationEvents := map[string][]CompilationEvent{}
-			fileNames := []string{}
+			compilationEvents := internal.NewResultStore[[]CompilationEvent]()
 
-			for filePath, entries := range logEntries {
-				if _, ok := compilationEvents[filePath]; !ok {
-					// find the closest file name first before adding the compilation event
-					if found := fuzzy.RankFindFold(filePath, fileNames); len(found) != 0 {
-						fmt.Printf("error_quotient: Merging %s into %s\n", filePath, found[0].Target)
-						filePath = found[0].Target
-					} else {
-						fileNames = append(fileNames, filePath)
-						compilationEvents[filePath] = []CompilationEvent{}
-					}
-				}
+			for filePathIdx, entries := range logEntries.Values {
+				filePath := logEntries.Filenames[filePathIdx]
 
 				for i := 0; i < len(entries)-1; i++ {
-					entry1 := entries[i]
-					entry2 := entries[i+1]
+					entry1 := &entries[i]
+					entry1.FilePath = logEntries.FilenameNearest(entry1.FilePath)
+
+					entry2 := &entries[i+1]
+					entry2.FilePath = logEntries.FilenameNearest(entry2.FilePath)
 
 					// Calculate CharDelta between file versions
 					charDelta, location, err := CalculateCharDeltaAndLocation(log, filePath, entry1, entry2)
@@ -214,32 +206,25 @@ func (e *Analyzer) Analyze() error {
 						Location:  location,
 					}
 
-					compilationEvents[filePath] = append(compilationEvents[filePath], compilationEvent)
+					compilationEvents.Set(
+						filePath,
+						append(
+							compilationEvents.GetOr(filePath, []CompilationEvent{}),
+							compilationEvent))
 				}
 			}
 
-			if e.ErrorsByParticipant == nil {
-				e.ErrorsByParticipant = map[string]ErrorQuotientAnalysisResult{}
-			}
-
 			// store the compilation events
-			e.ErrorsByParticipant[participantId] = ErrorQuotientAnalysisResult{
+			results[participantId] = ErrorQuotientAnalysisResult{
 				compilationEvents: compilationEvents,
 			}
 		}
 	}
 
-	for participantId, result := range e.ErrorsByParticipant {
-		if e.ResultsByParticipant == nil {
-			e.ResultsByParticipant = map[string]map[string]float64{}
-		}
-
-		if _, ok := e.ResultsByParticipant[participantId]; !ok {
-			e.ResultsByParticipant[participantId] = map[string]float64{}
-		}
-
-		for filePath, events := range result.compilationEvents {
-			e.ResultsByParticipant[participantId][filePath] = calculateEQ(events)
+	for participantId, result := range results {
+		for filePathIdx, events := range result.compilationEvents.Values {
+			filePath := result.compilationEvents.Filenames[filePathIdx]
+			writer.Write(KEY, participantId, filePath, calculateEQ(events))
 		}
 	}
 

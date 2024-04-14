@@ -1,9 +1,46 @@
 package analyzer
 
-import "github.com/nedpals/bugbuddy/server/logger"
+import (
+	"github.com/nedpals/bugbuddy/server/logger"
+)
+
+// KVWriter is an interface for writing key-value pairs
+type KVWriter interface {
+	Write(name string, pid string, file string, value interface{})
+}
+
+type DefaultKVWriter map[string]map[string]map[string]any
+
+func (d DefaultKVWriter) Write(name string, pid string, key string, value interface{}) {
+	if _, ok := d[name]; !ok {
+		d[name] = make(map[string]map[string]any)
+	}
+
+	if _, ok := d[name][pid]; !ok {
+		d[name][pid] = make(map[string]any)
+	}
+
+	d[name][pid][key] = value
+}
+
+func NewDefaultKV() DefaultKVWriter {
+	return make(DefaultKVWriter)
+}
 
 // LoggerLoader is a function that returns a logger and an error
 type LoggerLoader func() (*logger.Logger, error)
+
+// NewLoaderFromPaths creates a new logger loader from a list of log file paths
+func NewLoaderFromPaths(paths ...string) []LoggerLoader {
+	loaders := make([]LoggerLoader, len(paths))
+	for i, path := range paths {
+		loaders[i] = func() (*logger.Logger, error) {
+			return logger.NewLoggerFromPath(path)
+		}
+	}
+
+	return loaders
+}
 
 // LoadFromExistingLogger creates a new logger loader from an existing logger
 func LoadFromExistingLogger(lg *logger.Logger) LoggerLoader {
@@ -13,28 +50,11 @@ func LoadFromExistingLogger(lg *logger.Logger) LoggerLoader {
 }
 
 // LoggerAnalyzer is an interface for analyzing log files
-type LoggerAnalyzer[A any] interface {
-	Load(loader []LoggerLoader) error
-	Analyze() error
-	*A
+type LoggerAnalyzer interface {
+	Analyze(writer KVWriter, loader ...LoggerLoader) error
 }
 
-// NewAnalyzerFromPaths creates a new analyzer from a list of log file paths
-func NewAnalyzerFromPaths[T any, PT LoggerAnalyzer[T]](paths ...string) PT {
-	loaders := make([]LoggerLoader, len(paths))
-	for i, path := range paths {
-		loaders[i] = func() (*logger.Logger, error) {
-			return logger.NewLoggerFromPath(path)
-		}
-	}
-
-	return New[T, PT](loaders...)
-}
-
-// New creates a new analyzer from a list of log loaders
-func New[T any, PT LoggerAnalyzer[T]](loader ...LoggerLoader) PT {
+func New[T LoggerAnalyzer]() LoggerAnalyzer {
 	instances := make([]T, 1)
-	an := PT(&instances[0])
-	an.Load(loader)
-	return an
+	return instances[0]
 }

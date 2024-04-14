@@ -1,7 +1,6 @@
 package timetosolve_test
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -40,18 +39,18 @@ func TestTTSAnalyzer(t *testing.T) {
 	}
 
 	// Initialize the TTS Analyzer
-	ttsa := analyzer.New[timetosolve.Analyzer](analyzer.LoadFromExistingLogger(log))
+	ttsa := analyzer.New[*timetosolve.Analyzer]()
+	logg := analyzer.LoadFromExistingLogger(log)
+	kv := analyzer.NewDefaultKV()
 
 	// Analyze to calculate TTS
-	if err := ttsa.Analyze(); err != nil {
+	if err := ttsa.Analyze(kv, logg); err != nil {
 		t.Fatalf("TTS Analyzer failed: %v", err)
 	}
 
-	fmt.Println(ttsa.ResultsByParticipant)
-
 	// Check the TTS value for the participant
 	expectedTTS := 1 * time.Hour
-	tts, ok := ttsa.ResultsByParticipant[log.ParticipantId()]["/test/problem.go"]
+	tts, ok := kv[timetosolve.KEY][log.ParticipantId()]["/test/problem.go"].(time.Duration)
 	if !ok {
 		t.Fatalf("No TTS value found for participant")
 	}

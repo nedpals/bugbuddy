@@ -71,14 +71,16 @@ func TestErrorQuotientAnalyzer(t *testing.T) {
 	}
 
 	// Create a new ErrorQuotientAnalyzer
-	eqa := analyzer.New[errorquotient.Analyzer](analyzer.LoadFromExistingLogger(log))
+	eqa := analyzer.New[*errorquotient.Analyzer]()
+	logg := analyzer.LoadFromExistingLogger(log)
+	kvs := analyzer.NewDefaultKV()
 
 	// Analyze the log
-	if err := eqa.Analyze(); err != nil {
+	if err := eqa.Analyze(kvs, logg); err != nil {
 		t.Fatalf("EQ analysis failed: %v", err)
 	}
 
-	if _, ok := eqa.ResultsByParticipant[log.ParticipantId()]; !ok {
+	if _, ok := kvs[errorquotient.KEY][participantId]; !ok {
 		t.Fatal("No results found")
 	}
 
@@ -94,7 +96,7 @@ func TestErrorQuotientAnalyzer(t *testing.T) {
 	// expectedEQ = normalizedScore / numberOfPairs = (10/9) / 3 = 10/27
 
 	expectedEQ := 0.370370 // This is an example value; you need to calculate the expected EQ based on your mockEvents
-	if eq, ok := eqa.ResultsByParticipant[participantId][filePath]; !ok || (eq < expectedEQ || eq > expectedEQ+0.001) {
+	if eq, ok := kvs[errorquotient.KEY][participantId][filePath].(float64); !ok || (eq < expectedEQ || eq > expectedEQ+0.001) {
 		t.Errorf("Expected EQ of %f for participant %s and file %s, but got %f", expectedEQ, participantId, filePath, eq)
 	}
 }
