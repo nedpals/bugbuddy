@@ -3,7 +3,7 @@ package internal
 import (
 	"strings"
 
-	"github.com/lithammer/fuzzysearch/fuzzy"
+	"github.com/nedpals/bugbuddy/server/logger/analyzer/nearest"
 )
 
 type ResultStore[T any] struct {
@@ -14,25 +14,7 @@ type ResultStore[T any] struct {
 }
 
 func (r *ResultStore[T]) FilenameNearest(filePath string) string {
-	if _, ok := r.FilenamesIndices[filePath]; !ok {
-		// check if the filePath is already an alias
-		found := fuzzy.RankFindNormalizedFold(filePath, r.Filenames)
-
-		// if the file path is not found, return the file path
-		if len(found) == 0 {
-			return filePath
-		}
-
-		// find the closest file name first before adding the value
-		foundPath := found[0].Target
-		distance := found[0].Distance
-
-		if distance <= 6 && (strings.HasPrefix(foundPath, filePath) || strings.HasPrefix(filePath, foundPath)) {
-			return foundPath
-		}
-	}
-
-	return filePath
+	return nearest.FilenameNearest(filePath, r.FilenamesIndices, r.Filenames)
 }
 
 func (r *ResultStore[T]) checkAndUpdateFilename(filePath string) string {

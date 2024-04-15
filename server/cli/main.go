@@ -7,10 +7,11 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"slices"
+	"sort"
 	"strings"
 	"time"
 
-	"github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/nedpals/bugbuddy/server/daemon"
 	"github.com/nedpals/bugbuddy/server/daemon/types"
 	"github.com/nedpals/bugbuddy/server/executor"
@@ -18,6 +19,7 @@ import (
 	"github.com/nedpals/bugbuddy/server/logger"
 	log_analyzer "github.com/nedpals/bugbuddy/server/logger/analyzer"
 	errorquotient "github.com/nedpals/bugbuddy/server/logger/analyzer/error_quotient"
+	la_nearest "github.com/nedpals/bugbuddy/server/logger/analyzer/nearest"
 	red "github.com/nedpals/bugbuddy/server/logger/analyzer/repeated_error_density"
 	timetosolve "github.com/nedpals/bugbuddy/server/logger/analyzer/time_to_solve"
 	"github.com/nedpals/bugbuddy/server/lsp_server"
@@ -239,29 +241,20 @@ type analyzerResultEntry struct {
 }
 
 func (a *analyzerResultEntry) Write(name string, filePath string, value any) {
+	filePath = strings.TrimSpace(filePath)
+
+	// check if the filePath is already in the list
 	if _, ok := a.FilenamesIndices[filePath]; !ok {
-		// check if the filePath is already an alias
 		if alias, ok := a.FilenameAliases[filePath]; ok {
+			// do not mutate the original file path
 			filePath = alias
-		} else if found := fuzzy.RankFindFold(filePath, a.Filenames); len(found) != 0 {
-			// find the closest file name first before adding the value
-			foundPath := found[0].Target
-
-			// check if the found path is a prefix of the file path
-			if found[0].Distance <= 5 && len(filePath) > len(foundPath) && strings.HasPrefix(filePath, foundPath) {
-				// if it is, replace the found path with the file path
-				a.FilenameAliases[foundPath] = filePath
-				a.FilenamesIndices[filePath] = a.FilenamesIndices[foundPath]
-				delete(a.FilenamesIndices, foundPath)
-
-				// replace the found path with the file path
-				a.Filenames[a.FilenamesIndices[filePath]] = filePath
-			} else {
-				// if it is not, add the file path
-				a.FilenamesIndices[filePath] = len(a.Filenames)
-				a.Filenames = append(a.Filenames, filePath)
-			}
-		} else {
+		} else if nearest := la_nearest.FilenameNearest(filePath, a.FilenamesIndices, a.Filenames); nearest != filePath && strings.HasPrefix(filePath, nearest) {
+			// if it is, replace the found path with the file path
+			a.Filenames[a.FilenamesIndices[nearest]] = filePath
+			a.FilenameAliases[nearest] = filePath
+			a.FilenamesIndices[filePath] = a.FilenamesIndices[nearest]
+			delete(a.FilenamesIndices, nearest)
+		} else if _, ok := a.FilenamesIndices[filePath]; !ok {
 			// if it is not, add the file path
 			a.FilenamesIndices[filePath] = len(a.Filenames)
 			a.Filenames = append(a.Filenames, filePath)
@@ -418,16 +411,23 @@ var analyzeLogCmd = &cobra.Command{
 				sheet.SetColAutoWidth(aCellRow+2, adjustToTextWidth)
 			}
 
-			for fileIdx, filePath := range result.Filenames {
+			// sort filenames
+			sortedFilenames := slices.Clone(result.Filenames)
+			sort.Slice(sortedFilenames, func(i, j int) bool {
+				return sortedFilenames[i] < sortedFilenames[j]
+			})
+
+			for idx, filePath := range sortedFilenames {
 				if len(strings.TrimSpace(filePath)) == 0 {
 					continue
 				}
 
-				row, _ := sheet.Row(fileIdx + 1)
+				fileIdx := result.FilenamesIndices[filePath]
+				row, _ := sheet.Row(idx + 1)
 				row.AddCell().SetValue(filePath)
 
 				for _, analyzerName := range selectedAnalyzers {
-					cell, _ := sheet.Cell(fileIdx+1, analyzerCellLocations[analyzerName])
+					cell, _ := sheet.Cell(idx+1, analyzerCellLocations[analyzerName])
 
 					switch analyzerName {
 					case "eq":
@@ -437,7 +437,7 @@ var analyzeLogCmd = &cobra.Command{
 					case "tts":
 						cell.SetValue(result.TimeToSolve[fileIdx].Seconds())
 
-						hhMmSsCell, _ := sheet.Cell(fileIdx+1, analyzerCellLocations[analyzerName]+1)
+						hhMmSsCell, _ := sheet.Cell(idx+1, analyzerCellLocations[analyzerName]+1)
 						hhMmSsCell.SetValue(formatDuration(result.TimeToSolve[fileIdx]))
 					}
 				}
