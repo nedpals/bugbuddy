@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -295,8 +296,18 @@ var analyzeLogCmd = &cobra.Command{
 	Short: "Analyzes a set of log files. The results will be saved to an excel file.",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		rawExcludeFlag, _ := cmd.Flags().GetString("exclude")
 		afterFlag, _ := cmd.Flags().GetString("after")
 		afterDate := time.Time{}
+
+		var excludePattern *regexp.Regexp
+		if len(rawExcludeFlag) != 0 {
+			var err error
+			excludePattern, err = regexp.Compile(rawExcludeFlag)
+			if err != nil {
+				log.Fatalln(err)
+			}
+		}
 
 		if len(afterFlag) != 0 {
 			var err error
@@ -324,6 +335,12 @@ var analyzeLogCmd = &cobra.Command{
 			}
 
 			for _, match := range matches {
+				// check if the directory is excluded
+				if excludePattern != nil && excludePattern.MatchString(match) {
+					log.Printf("skipping %s\n", match)
+					continue
+				}
+
 				// check if match is a directory
 				fi, err := os.Stat(match)
 				if err != nil {
@@ -478,6 +495,7 @@ func init() {
 	analyzeLogCmd.PersistentFlags().StringP("output", "o", "results.xlsx", "the output file to save the results")
 	analyzeLogCmd.PersistentFlags().StringSliceP("metrics", "m", []string{"eq", "red", "tts"}, "the analyzers to use")
 	analyzeLogCmd.PersistentFlags().String("after", "", "the date to start analyzing the logs")
+	analyzeLogCmd.PersistentFlags().String("exclude", "", "exclude directories from the analysis")
 }
 
 func main() {
