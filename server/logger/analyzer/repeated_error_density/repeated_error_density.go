@@ -3,6 +3,7 @@ package repeatederrordensity
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/nedpals/bugbuddy/server/logger/analyzer"
 )
@@ -38,6 +39,11 @@ func (e *Analyzer) Analyze(writer analyzer.KVWriter, loaders ...analyzer.LoggerL
 				fmt.Fprintln(os.Stderr, err)
 			}
 
+			// skip if the error message is "file not found". This is not the programmers fault.
+			if strings.Contains(entry.ErrorMessage, "error: file not found:") {
+				continue
+			}
+
 			if _, ok := errorEvents[entry.ParticipantId]; !ok {
 				errorEvents[entry.ParticipantId] = map[string][]ErrorEvent{}
 			}
@@ -46,9 +52,14 @@ func (e *Analyzer) Analyze(writer analyzer.KVWriter, loaders ...analyzer.LoggerL
 				errorEvents[entry.ParticipantId][entry.FilePath] = []ErrorEvent{}
 			}
 
+			errorType := entry.ErrorType
+			if entry.ErrorCode != 0 && len(errorType) == 0 && strings.Contains(entry.GeneratedOutput, "# UnknownError") {
+				errorType = "UnknownError"
+			}
+
 			errorEvents[entry.ParticipantId][entry.FilePath] = append(errorEvents[entry.ParticipantId][entry.FilePath], ErrorEvent{
 				IsError:   entry.ErrorCode != 0,
-				ErrorType: entry.ErrorType,
+				ErrorType: errorType,
 			})
 		}
 
@@ -57,16 +68,6 @@ func (e *Analyzer) Analyze(writer analyzer.KVWriter, loaders ...analyzer.LoggerL
 				currentErrorType := ""
 				repeatedCount := 0
 				red := 0.0
-
-				// if _, ok := e.ResultsByParticipant[participantId][filePath]; !ok {
-				// 	// find the closest file name first before adding the compilation event
-				// 	if found := fuzzy.RankFindFold(filePath, fileNames); len(found) != 0 {
-				// 		filePath = found[0].Target
-				// 	} else {
-				// 		fileNames = append(fileNames, filePath)
-				// 		e.ResultsByParticipant[participantId][filePath] = 0.0
-				// 	}
-				// }
 
 				for _, event := range events {
 					if event.IsError && event.ErrorType == currentErrorType {

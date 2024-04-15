@@ -211,6 +211,11 @@ func (e *Analyzer) Analyze(writer analyzer.KVWriter, loaders ...analyzer.LoggerL
 				continue
 			}
 
+			// Skip if the error message is "file not found". This is not the programmers fault.
+			if strings.Contains(entry.ErrorMessage, "error: file not found:") {
+				continue
+			}
+
 			participantId := entry.ParticipantId
 			if _, ok := logEntries[participantId]; !ok {
 				logEntries[participantId] = internal.NewResultStore[[]logger.LogEntry]()
