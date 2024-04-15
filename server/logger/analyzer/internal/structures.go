@@ -36,17 +36,15 @@ func (r *ResultStore[T]) FilenameNearest(filePath string) string {
 }
 
 func (r *ResultStore[T]) checkAndUpdateFilename(filePath string) string {
+	filePath = strings.TrimSpace(filePath)
+
 	if alias, ok := r.FilenameAliases[filePath]; ok {
 		// do not mutate the original file path
 		return alias
 	}
 
 	// nearest based on levenstein distance
-	nearest := r.FilenameNearest(filePath)
-
-	if nearest != filePath && strings.HasPrefix(filePath, nearest) {
-		// fmt.Println("SETTING NEAREST", nearest, filePath, r.FilenamesIndices[nearest])
-
+	if nearest := r.FilenameNearest(filePath); nearest != filePath && strings.HasPrefix(filePath, nearest) {
 		// if it is, replace the found path with the file path
 		r.Filenames[r.FilenamesIndices[nearest]] = filePath
 		r.FilenameAliases[nearest] = filePath

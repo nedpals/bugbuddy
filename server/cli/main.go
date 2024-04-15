@@ -25,7 +25,7 @@ import (
 	"github.com/nedpals/bugbuddy/server/runner"
 	"github.com/nedpals/errgoengine"
 	"github.com/spf13/cobra"
-	"github.com/tealeg/xlsx"
+	"github.com/tealeg/xlsx/v3"
 	"golang.org/x/exp/maps"
 )
 
@@ -293,16 +293,31 @@ var analyzerCellNames = map[string]string{
 	"tts": "Time To Solve",
 }
 
+func adjustToTextWidth(s string) float64 {
+	return float64(len(s))
+}
+
 var analyzeLogCmd = &cobra.Command{
 	Use:   "analyze-log",
 	Short: "Analyzes a set of log files. The results will be saved to an excel file.",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		afterFlag, _ := cmd.Flags().GetString("after")
+		afterDate := time.Time{}
+
+		if len(afterFlag) != 0 {
+			var err error
+			afterDate, err = time.Parse("01/02/2006", afterFlag)
+			if err != nil {
+				log.Fatalln(err)
+			}
+		}
+
 		selectedAnalyzers, _ := cmd.Flags().GetStringSlice("metrics")
 
 		for _, analyzerName := range selectedAnalyzers {
 			if _, ok := supportedAnalyzers[analyzerName]; !ok {
-				return fmt.Errorf("invalid analyzer: %s. only %s were allowed", analyzerName, strings.Join(maps.Keys(supportedAnalyzers), ", "))
+				log.Fatalf("invalid analyzer: %s. only %s were allowed\n", analyzerName, strings.Join(maps.Keys(supportedAnalyzers), ", "))
 			}
 		}
 
@@ -341,12 +356,20 @@ var analyzeLogCmd = &cobra.Command{
 			}
 		}
 
+		if len(loggerLoaders) == 0 {
+			log.Fatalln("no log files were loaded")
+		}
+
 		results := analyzerResult{}
 
 		for _, lgLoader := range loggerLoaders {
 			lg, err := lgLoader()
 			if err != nil {
 				log.Fatalln(err)
+			}
+
+			if !afterDate.IsZero() {
+				lg.After = afterDate
 			}
 
 			loader := func() (*logger.Logger, error) {
@@ -386,14 +409,25 @@ var analyzeLogCmd = &cobra.Command{
 				aCell := row.AddCell()
 				aCell.SetValue(name)
 				analyzerCellLocations[analyzerName] = aCellRow + 1
+
+				if analyzerName == "tts" {
+					row.AddCell().SetValue("Time To Solve (HH:MM:SS)")
+					sheet.SetColAutoWidth(aCellRow+3, adjustToTextWidth)
+				}
+
+				sheet.SetColAutoWidth(aCellRow+2, adjustToTextWidth)
 			}
 
 			for fileIdx, filePath := range result.Filenames {
-				row := sheet.Row(fileIdx + 1)
+				if len(strings.TrimSpace(filePath)) == 0 {
+					continue
+				}
+
+				row, _ := sheet.Row(fileIdx + 1)
 				row.AddCell().SetValue(filePath)
 
 				for _, analyzerName := range selectedAnalyzers {
-					cell := sheet.Cell(fileIdx+1, analyzerCellLocations[analyzerName])
+					cell, _ := sheet.Cell(fileIdx+1, analyzerCellLocations[analyzerName])
 
 					switch analyzerName {
 					case "eq":
@@ -401,10 +435,15 @@ var analyzeLogCmd = &cobra.Command{
 					case "red":
 						cell.SetValue(result.RepeatedErrorDensity[fileIdx])
 					case "tts":
-						cell.SetValue(formatDuration(result.TimeToSolve[fileIdx]))
+						cell.SetValue(result.TimeToSolve[fileIdx].Seconds())
+
+						hhMmSsCell, _ := sheet.Cell(fileIdx+1, analyzerCellLocations[analyzerName]+1)
+						hhMmSsCell.SetValue(formatDuration(result.TimeToSolve[fileIdx]))
 					}
 				}
 			}
+
+			sheet.SetColAutoWidth(1, xlsx.DefaultAutoWidth)
 		}
 
 		if err := wb.Save(outputPath); err != nil {
@@ -438,6 +477,7 @@ func init() {
 	daemonCmd.PersistentFlags().String("data-dir", "", "the directory to use for the daemon. To override the default directory, set the BUGBUDDY_DIR environment variable.")
 	analyzeLogCmd.PersistentFlags().StringP("output", "o", "results.xlsx", "the output file to save the results")
 	analyzeLogCmd.PersistentFlags().StringSliceP("metrics", "m", []string{"eq", "red", "tts"}, "the analyzers to use")
+	analyzeLogCmd.PersistentFlags().String("after", "", "the date to start analyzing the logs")
 }
 
 func main() {

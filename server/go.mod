@@ -17,7 +17,20 @@ require (
 	modernc.org/sqlite v1.28.0
 )
 
-require golang.org/x/text v0.9.0 // indirect
+require (
+	github.com/frankban/quicktest v1.14.6 // indirect
+	github.com/google/btree v1.0.0 // indirect
+	github.com/google/go-cmp v0.5.9 // indirect
+	github.com/kr/pretty v0.3.1 // indirect
+	github.com/kr/text v0.2.0 // indirect
+	github.com/lann/builder v0.0.0-20180802200727-47ae307949d0 // indirect
+	github.com/lann/ps v0.0.0-20150810152359-62de8c46ede0 // indirect
+	github.com/peterbourgon/diskv/v3 v3.0.1 // indirect
+	github.com/rogpeppe/fastuuid v1.2.0 // indirect
+	github.com/rogpeppe/go-internal v1.9.0 // indirect
+	github.com/shabbyrobe/xmlwriter v0.0.0-20200208144257-9fca06d00ffa // indirect
+	golang.org/x/text v0.9.0 // indirect
+)
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
@@ -39,6 +52,7 @@ require (
 )
 
 require (
+	github.com/Masterminds/squirrel v1.5.4
 	github.com/agnivade/levenshtein v1.1.1
 	github.com/carlmjohnson/versioninfo v0.22.5
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
@@ -50,6 +64,7 @@ require (
 	github.com/sourcegraph/jsonrpc2 v0.2.0
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/tealeg/xlsx/v3 v3.3.6
 	go.lsp.dev/jsonrpc2 v0.10.0 // indirect
 	go.lsp.dev/pkg v0.0.0-20210717090340-384b27a52fb2 // indirect
 	go.lsp.dev/uri v0.3.0

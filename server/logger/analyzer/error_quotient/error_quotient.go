@@ -1,6 +1,7 @@
 package errorquotient
 
 import (
+	"database/sql"
 	"fmt"
 	"strings"
 
@@ -77,21 +78,58 @@ func ErrorTypeConversion(errorCode int) int {
 }
 
 // Function to calculate CharDelta by comparing two versions of the same file
-func CalculateCharDeltaAndLocation(log *logger.Logger, filepath string, version1, version2 *logger.LogEntry) (charDelta int, location string, err error) {
+func CalculateCharDeltaAndLocation(log *logger.Logger, filepath string, version1, version2 logger.LogEntry) (charDelta int, location string, err error) {
 	if version1.FileVersion == 0 && strings.HasPrefix(version1.GeneratedOutput, "# UnknownError") {
 		// This is a special case where the file is not found, and the error message is "# UnknownError"
 		return 0, "", nil
 	}
 
 	// open the files first
-	content1, err := log.OpenVersionedFile(filepath, version1.FileVersion)
+	content1, err := log.OpenVersionedFileFromPID(version1.ParticipantId, filepath, version1.FileVersion)
 	if err != nil {
-		return 0, "", err
+		if err == sql.ErrNoRows {
+			if version1.ErrorCode != 0 {
+				return 0, "", fmt.Errorf("(%s) file not found: %s (version: %d)", version1.ParticipantId, filepath, version1.FileVersion)
+			}
+
+			// Just ignore and use the contents from version2
+		} else {
+			return 0, "", err
+		}
 	}
-	content2, err := log.OpenVersionedFile(filepath, version2.FileVersion)
+
+	content2, err := log.OpenVersionedFileFromPID(version2.ParticipantId, filepath, version2.FileVersion)
 	if err != nil {
-		return 0, "", err
+		if err == sql.ErrNoRows {
+			if version2.ErrorCode != 0 {
+				return 0, "", fmt.Errorf("file not found: %s (version: %d)", filepath, version2.FileVersion)
+			}
+
+			// Use latest version if the file is not found and error code is 0
+			latestVersion, verErr := log.LatestVersionFromFile(filepath)
+			if latestVersion == -1 {
+				return 0, "", verErr
+			}
+
+			newContent2, err := log.OpenVersionedFileFromPID(version2.ParticipantId, filepath, latestVersion)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					return 0, "", fmt.Errorf("(2nd) file not found: %s (version: %d)", filepath, latestVersion)
+				}
+				return 0, "", err
+			}
+
+			// Use the content from version2 if version1 is not found
+			if version1.FileVersion == 0 {
+				content1 = content2
+			}
+
+			content2 = newContent2
+		} else {
+			return 0, "", err
+		}
 	}
+	err = nil
 
 	// diff the files
 	dmp := diffmatchpatch.New()
@@ -133,6 +171,15 @@ type Analyzer struct {
 	ErrorsByParticipant map[string]ErrorQuotientAnalysisResult
 }
 
+func getLastVersionNumberFromIdx(entries []logger.LogEntry, filePath string, idx int) int {
+	for i := idx; i >= 0; i-- {
+		if entries[i].FilePath == filePath && entries[i].FileVersion != 0 {
+			return entries[i].FileVersion
+		}
+	}
+	return 0
+}
+
 func (e *Analyzer) Analyze(writer analyzer.KVWriter, loaders ...analyzer.LoggerLoader) error {
 	results := map[string]ErrorQuotientAnalysisResult{}
 
@@ -169,12 +216,9 @@ func (e *Analyzer) Analyze(writer analyzer.KVWriter, loaders ...analyzer.LoggerL
 				logEntries[participantId] = internal.NewResultStore[[]logger.LogEntry]()
 			}
 
-			filePath := entry.FilePath
-			logEntries[participantId].Set(
-				filePath,
-				append(
-					logEntries[participantId].GetOr(filePath, []logger.LogEntry{}),
-					entry))
+			filePath := logEntries[participantId].FilenameNearest(entry.FilePath)
+			existing := logEntries[participantId].GetOr(filePath, []logger.LogEntry{})
+			logEntries[participantId].Set(filePath, append(existing, entry))
 		}
 
 		for participantId, logEntries := range logEntries {
@@ -182,14 +226,27 @@ func (e *Analyzer) Analyze(writer analyzer.KVWriter, loaders ...analyzer.LoggerL
 			compilationEvents := internal.NewResultStore[[]CompilationEvent]()
 
 			for filePathIdx, entries := range logEntries.Values {
-				filePath := logEntries.Filenames[filePathIdx]
+				filePath := logEntries.FilenameNearest(logEntries.Filenames[filePathIdx])
 
 				for i := 0; i < len(entries)-1; i++ {
-					entry1 := &entries[i]
-					entry1.FilePath = logEntries.FilenameNearest(entry1.FilePath)
+					entry1 := entries[i]
 
-					entry2 := &entries[i+1]
-					entry2.FilePath = logEntries.FilenameNearest(entry2.FilePath)
+					// Because the filePath uses the nearestFilename, some entries may have the wrong version number
+					// because the original file path is not found in the logEntries.
+					if entry1.FileVersion == 0 {
+						entry1.FileVersion = getLastVersionNumberFromIdx(entries, filePath, i)
+					}
+
+					entry2 := entries[i+1]
+
+					// Same as above, but for the second entry
+					if entry2.FileVersion == 0 {
+						if entry1.FileVersion != 0 {
+							entry2.FileVersion = entry1.FileVersion
+						} else {
+							entry2.FileVersion = getLastVersionNumberFromIdx(entries, filePath, i+1)
+						}
+					}
 
 					// Calculate CharDelta between file versions
 					charDelta, location, err := CalculateCharDeltaAndLocation(log, filePath, entry1, entry2)

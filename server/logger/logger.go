@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Masterminds/squirrel"
 	"github.com/jmoiron/sqlx"
 	"github.com/lucasepe/codename"
 
@@ -48,6 +49,7 @@ var initScript string
 
 type Logger struct {
 	participantId string
+	After         time.Time
 	db            *sqlx.DB
 }
 
@@ -281,17 +283,22 @@ func (it *LogEntryIterator) List() ([]LogEntry, error) {
 }
 
 func (log *Logger) Entries() (*LogEntryIterator, error) {
-	rows, err := log.db.Queryx("SELECT * FROM logs")
-	if err != nil {
-		defer rows.Close()
-		return nil, err
-	}
-	return &LogEntryIterator{rows: rows}, nil
+	return log.EntriesByParticipantId(log.ParticipantId())
 }
 
 // EntriesDescending returns log entries in descending order (latest first)
 func (log *Logger) EntriesDescending() (*LogEntryIterator, error) {
-	rows, err := log.db.Queryx("SELECT * FROM logs ORDER BY created_at DESC")
+	query := squirrel.Select("*").From("logs").OrderBy("created_at DESC")
+	if !log.After.IsZero() {
+		query = query.Where(squirrel.GtOrEq{"created_at": log.After})
+	}
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := log.db.Queryx(sql, args...)
 	if err != nil {
 		defer rows.Close()
 		return nil, err
@@ -300,7 +307,17 @@ func (log *Logger) EntriesDescending() (*LogEntryIterator, error) {
 }
 
 func (log *Logger) EntriesByParticipantId(participantId string) (*LogEntryIterator, error) {
-	rows, err := log.db.Queryx("SELECT * FROM logs WHERE participant_id = ?", participantId)
+	query := squirrel.Select("*").From("logs").Where(squirrel.Eq{"participant_id": participantId})
+	if !log.After.IsZero() {
+		query = query.Where(squirrel.GtOrEq{"created_at": log.After})
+	}
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := log.db.Queryx(sql, args...)
 	if err != nil {
 		defer rows.Close()
 		return nil, err
@@ -310,12 +327,22 @@ func (log *Logger) EntriesByParticipantId(participantId string) (*LogEntryIterat
 
 func (log *Logger) Reset() error {
 	// delete logs
-	if _, err := log.db.Exec("DELETE FROM logs WHERE participant_id = ?", log.ParticipantId()); err != nil {
+	logQuery := squirrel.Delete("logs").Where(squirrel.Eq{"participant_id": log.ParticipantId()})
+	if !log.After.IsZero() {
+		logQuery = logQuery.Where(squirrel.GtOrEq{"created_at": log.After})
+	}
+
+	if _, err := logQuery.RunWith(log.db).Exec(); err != nil {
 		return err
 	}
 
 	// delete files
-	if _, err := log.db.Exec("DELETE FROM files WHERE participant_id = ?", log.ParticipantId()); err != nil {
+	filesQuery := squirrel.Delete("files").Where(squirrel.Eq{"participant_id": log.ParticipantId()})
+	if !log.After.IsZero() {
+		filesQuery = filesQuery.Where(squirrel.GtOrEq{"created_at": log.After})
+	}
+
+	if _, err := filesQuery.RunWith(log.db).Exec(); err != nil {
 		return err
 	}
 
@@ -330,11 +357,15 @@ func (log *Logger) OpenFile(filepath string) ([]byte, error) {
 }
 
 func (log *Logger) OpenVersionedFile(filepath string, file_version int) ([]byte, error) {
+	return log.OpenVersionedFileFromPID(log.ParticipantId(), filepath, file_version)
+}
+
+func (log *Logger) OpenVersionedFileFromPID(pid string, filepath string, file_version int) ([]byte, error) {
 	var content []byte
 	// get the recent file by file_version
 	err := log.db.QueryRow(
 		"SELECT content FROM files WHERE participant_id = ? AND file_path = ? AND file_version = ?",
-		log.ParticipantId(),
+		pid,
 		filepath,
 		file_version).Scan(&content)
 
